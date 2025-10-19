@@ -7,6 +7,8 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -69,12 +71,29 @@ public class JwtService {
     }
 
     private Key buildKey(String secret) {
+        byte[] keyBytes;
         try {
-            byte[] keyBytes = Decoders.BASE64.decode(secret);
-            return Keys.hmacShaKeyFor(keyBytes);
-        } catch (IllegalArgumentException ex) {
-            byte[] keyBytes = secret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            return Keys.hmacShaKeyFor(keyBytes);
+            keyBytes = Decoders.BASE64.decode(secret);
+        } catch (RuntimeException ex) {
+            keyBytes = secret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        byte[] safeKey = ensureMinimumKeyLength(keyBytes, secret);
+        return Keys.hmacShaKeyFor(safeKey);
+    }
+
+    private byte[] ensureMinimumKeyLength(byte[] keyBytes, String sourceSecret) {
+        if (keyBytes.length >= 32) {
+            return keyBytes;
+        }
+
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(sourceSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException e) {
+            byte[] padded = new byte[32];
+            System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, padded.length));
+            return padded;
         }
     }
 }

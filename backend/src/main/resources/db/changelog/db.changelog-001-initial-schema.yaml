@@ -36,10 +36,12 @@ databaseChangeLog:
             tableName: users
             columnNames: username
             constraintName: uq_users_username
-        - addCheckConstraint:
-            tableName: users
-            constraintName: ck_users_role
-      checkConstraint: role IN ('STORE_USER','APPROVER','ADMIN')
+        - sql:
+            stripComments: true
+            sql: |
+              ALTER TABLE users
+              ADD CONSTRAINT ck_users_role
+              CHECK (role IN ('STORE_USER','APPROVER','ADMIN'));
         - createIndex:
             tableName: users
             indexName: idx_users_role
@@ -142,10 +144,12 @@ databaseChangeLog:
                   defaultValueComputed: CURRENT_TIMESTAMP
                   constraints:
                     nullable: false
-        - addCheckConstraint:
-            tableName: orders
-            constraintName: ck_orders_status
-            checkConstraint: status IN ('PENDING_APPROVAL','APPROVED','REJECTED','IN_TRANSIT','FULFILLED')
+        - sql:
+            stripComments: true
+            sql: |
+              ALTER TABLE orders
+              ADD CONSTRAINT ck_orders_status
+              CHECK (status IN ('PENDING_APPROVAL','APPROVED','REJECTED','IN_TRANSIT','FULFILLED'));
         - addForeignKeyConstraint:
             baseTableName: orders
             baseColumnNames: user_id
@@ -238,10 +242,12 @@ databaseChangeLog:
               - column:
                   name: approval_date
                   type: TIMESTAMP WITH TIME ZONE
-        - addCheckConstraint:
-            tableName: approvals
-            constraintName: ck_approvals_status
-            checkConstraint: status IN ('PENDING','APPROVED','REJECTED')
+        - sql:
+            stripComments: true
+            sql: |
+              ALTER TABLE approvals
+              ADD CONSTRAINT ck_approvals_status
+              CHECK (status IN ('PENDING','APPROVED','REJECTED'));
         - addForeignKeyConstraint:
             baseTableName: approvals
             baseColumnNames: order_id
@@ -336,10 +342,12 @@ databaseChangeLog:
                   defaultValueComputed: CURRENT_TIMESTAMP
                   constraints:
                     nullable: false
-        - addCheckConstraint:
-            tableName: audit_log
-            constraintName: ck_audit_log_action
-            checkConstraint: action IN ('CREATE','UPDATE','DELETE')
+        - sql:
+            stripComments: true
+            sql: |
+              ALTER TABLE audit_log
+              ADD CONSTRAINT ck_audit_log_action
+              CHECK (action IN ('CREATE','UPDATE','DELETE'));
         - addForeignKeyConstraint:
             baseTableName: audit_log
             baseColumnNames: user_id
@@ -360,24 +368,24 @@ databaseChangeLog:
               - column:
                   name: timestamp
   - changeSet:
-    id: 008-seed-admin-user
-    author: github-copilot
-    changes:
-    - insert:
-      tableName: users
-      columns:
-        - column:
-          name: id
-          value: 00000000-0000-0000-0000-000000000001
-        - column:
-          name: username
-          value: admin
-        - column:
-          name: password
-          value: $2a$10$k7Doa541GhcBlZMuLW/ntuqufTpxPUeBh739FC7ugN6aYSaafhHNS
-        - column:
-          name: role
-          value: ADMIN
-        - column:
-          name: email
-          value: admin@pumaprintables.com
+      id: 008-seed-admin-user
+      author: github-copilot
+      changes:
+        - insert:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  value: 00000000-0000-0000-0000-000000000001
+              - column:
+                  name: username
+                  value: admin
+              - column:
+                  name: password
+                  value: $2a$10$k7Doa541GhcBlZMuLW/ntuqufTpxPUeBh739FC7ugN6aYSaafhHNS
+              - column:
+                  name: role
+                  value: ADMIN
+              - column:
+                  name: email
+                  value: admin@pumaprintables.com
