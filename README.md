@@ -17,3 +17,7 @@ This workspace houses the full-stack Puma Printables order approval system.
 - `docs/` stores diagrams and specifications produced during implementation.
 
 Each milestone will land in its own commit with clear history to mirror a senior engineer's delivery cadence.
+
+## Documentation
+
+- `docs/architecture.md` captures the technology stack, environment setup, schema design, and API contract that drive the implementation that follows.
