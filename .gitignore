@@ -1,0 +1,17 @@
+# Backend artifacts
+backend/target/
+backend/.mvn/
+backend/.idea/
+backend/*.iml
+backend/*.log
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
