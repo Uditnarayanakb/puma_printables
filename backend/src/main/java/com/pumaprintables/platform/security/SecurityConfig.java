@@ -35,6 +35,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/login", "/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/api/v1/products/**").hasAnyRole("STORE_USER", "APPROVER", "ADMIN")
                 .requestMatchers("/api/v1/orders/pending", "/api/v1/orders/*/approve", "/api/v1/orders/*/reject").hasAnyRole("APPROVER", "ADMIN")
+                .requestMatchers("/api/v1/orders/*/courier").hasAnyRole("APPROVER", "ADMIN")
                 .requestMatchers("/api/v1/orders/**").hasAnyRole("STORE_USER", "APPROVER", "ADMIN")
                 .anyRequest().authenticated())
             .authenticationProvider(authenticationProvider())

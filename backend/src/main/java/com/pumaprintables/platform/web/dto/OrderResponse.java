@@ -16,6 +16,7 @@ public record OrderResponse(
     String customerGst,
     List<OrderItemResponse> items,
     BigDecimal totalAmount,
-    @JsonSerialize(using = ToStringSerializer.class) OffsetDateTime createdAt
+    @JsonSerialize(using = ToStringSerializer.class) OffsetDateTime createdAt,
+    CourierInfoResponse courierInfo
 ) {
 }

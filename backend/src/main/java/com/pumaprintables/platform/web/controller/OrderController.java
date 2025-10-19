@@ -4,6 +4,8 @@ import com.pumaprintables.platform.domain.model.Order;
 import com.pumaprintables.platform.domain.model.enums.OrderStatus;
 import com.pumaprintables.platform.service.OrderService;
 import com.pumaprintables.platform.web.dto.ApprovalActionRequest;
+import com.pumaprintables.platform.web.dto.CourierInfoRequest;
+import com.pumaprintables.platform.web.dto.CourierInfoResponse;
 import com.pumaprintables.platform.web.dto.CreateOrderRequest;
 import com.pumaprintables.platform.web.dto.OrderItemRequest;
 import com.pumaprintables.platform.web.dto.OrderItemResponse;
@@ -101,6 +103,18 @@ public class OrderController {
         return ResponseEntity.ok(toResponse(order));
     }
 
+    @PreAuthorize("hasAnyRole('APPROVER','ADMIN')")
+    @PostMapping("/{orderId}/courier")
+    public ResponseEntity<OrderResponse> addCourierInfo(@PathVariable UUID orderId,
+                                                        @Valid @RequestBody CourierInfoRequest request) {
+        Order order = orderService.addCourierInfo(orderId,
+            request.courierName(),
+            request.trackingNumber(),
+            request.dispatchDate());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(order));
+    }
+
     private OrderResponse toResponse(Order order) {
         List<OrderItemResponse> items = order.getItems().stream()
             .map(item -> {
@@ -119,6 +133,15 @@ public class OrderController {
             .map(OrderItemResponse::lineTotal)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        CourierInfoResponse courierInfo = null;
+        if (order.getCourierInfo() != null) {
+            courierInfo = new CourierInfoResponse(
+                order.getCourierInfo().getCourierName(),
+                order.getCourierInfo().getTrackingNumber(),
+                order.getCourierInfo().getDispatchDate()
+            );
+        }
+
         return new OrderResponse(
             order.getId(),
             order.getStatus(),
@@ -126,7 +149,8 @@ public class OrderController {
             order.getCustomerGst(),
             items,
             total,
-            order.getCreatedAt()
+            order.getCreatedAt(),
+            courierInfo
         );
     }
 

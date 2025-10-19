@@ -27,6 +27,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -151,6 +152,55 @@ class OrderControllerTest {
 
         Order order = orderRepository.findById(UUID.fromString(orderId)).orElseThrow();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.APPROVED);
+    }
+
+    @Test
+    void whenApproverAddsCourierInfo_thenOrderTransitionsToInTransit() throws Exception {
+        Product product = productRepository.findBySku("SKU-5000").orElseThrow();
+        String storeToken = obtainToken(STORE_USERNAME, STORE_PASSWORD);
+
+        ObjectNode payload = buildOrderPayload(product.getId(), 1);
+
+        var orderResponse = mockMvc.perform(post("/api/v1/orders")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + storeToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload)))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        String orderId = objectMapper.readTree(orderResponse.getResponse().getContentAsString()).get("id").asText();
+
+        String approverToken = obtainToken(APPROVER_USERNAME, APPROVER_PASSWORD);
+        ObjectNode approvalRequest = objectMapper.createObjectNode();
+        approvalRequest.put("comments", "Approved for dispatch");
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/approve")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + approverToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(approvalRequest)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value(OrderStatus.APPROVED.name()));
+
+        String dispatchDate = OffsetDateTime.now().plusHours(2).toString();
+        ObjectNode courierRequest = objectMapper.createObjectNode();
+        courierRequest.put("courierName", "Bluedart");
+        courierRequest.put("trackingNumber", "BD123456789");
+        courierRequest.put("dispatchDate", dispatchDate);
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/courier")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + approverToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(courierRequest)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.status").value(OrderStatus.IN_TRANSIT.name()))
+            .andExpect(jsonPath("$.courierInfo.courierName").value("Bluedart"))
+            .andExpect(jsonPath("$.courierInfo.trackingNumber").value("BD123456789"));
+
+        Order order = orderRepository.findById(UUID.fromString(orderId)).orElseThrow();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.IN_TRANSIT);
+        assertThat(order.getCourierInfo()).isNotNull();
+        assertThat(order.getCourierInfo().getCourierName()).isEqualTo("Bluedart");
+        assertThat(order.getCourierInfo().getTrackingNumber()).isEqualTo("BD123456789");
     }
 
     private String obtainToken(String username, String password) throws Exception {

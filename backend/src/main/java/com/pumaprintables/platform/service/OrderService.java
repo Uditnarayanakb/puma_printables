@@ -1,6 +1,7 @@
 package com.pumaprintables.platform.service;
 
 import com.pumaprintables.platform.domain.model.Approval;
+import com.pumaprintables.platform.domain.model.CourierInfo;
 import com.pumaprintables.platform.domain.model.Order;
 import com.pumaprintables.platform.domain.model.OrderItem;
 import com.pumaprintables.platform.domain.model.Product;
@@ -8,6 +9,7 @@ import com.pumaprintables.platform.domain.model.User;
 import com.pumaprintables.platform.domain.model.enums.ApprovalStatus;
 import com.pumaprintables.platform.domain.model.enums.OrderStatus;
 import com.pumaprintables.platform.domain.repository.ApprovalRepository;
+import com.pumaprintables.platform.domain.repository.CourierInfoRepository;
 import com.pumaprintables.platform.domain.repository.OrderRepository;
 import com.pumaprintables.platform.domain.repository.ProductRepository;
 import com.pumaprintables.platform.domain.repository.UserRepository;
@@ -29,13 +31,16 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final ApprovalRepository approvalRepository;
+    private final CourierInfoRepository courierInfoRepository;
 
     public OrderService(OrderRepository orderRepository, ProductRepository productRepository,
-                        UserRepository userRepository, ApprovalRepository approvalRepository) {
+                        UserRepository userRepository, ApprovalRepository approvalRepository,
+                        CourierInfoRepository courierInfoRepository) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
         this.approvalRepository = approvalRepository;
+        this.courierInfoRepository = courierInfoRepository;
     }
 
     @Transactional
@@ -153,6 +158,37 @@ public class OrderService {
         return order;
     }
 
+    @Transactional
+    public Order addCourierInfo(UUID orderId, String courierName, String trackingNumber, OffsetDateTime dispatchDate) {
+        Order order = getOrder(orderId);
+
+        if (order.getStatus() != OrderStatus.APPROVED && order.getStatus() != OrderStatus.IN_TRANSIT) {
+            throw new InvalidOrderStateException("Courier details can only be added to approved orders");
+        }
+
+        CourierInfo courierInfo = order.getCourierInfo();
+        if (courierInfo == null) {
+            courierInfo = CourierInfo.builder()
+                .order(order)
+                .build();
+        }
+
+        courierInfo.setCourierName(courierName);
+        courierInfo.setTrackingNumber(trackingNumber);
+        courierInfo.setDispatchDate(dispatchDate);
+
+        order.setCourierInfo(courierInfo);
+        courierInfoRepository.save(courierInfo);
+
+        if (order.getStatus() == OrderStatus.APPROVED) {
+            order.setStatus(OrderStatus.IN_TRANSIT);
+        }
+
+        Order saved = orderRepository.save(order);
+        hydrateOrder(saved);
+        return saved;
+    }
+
     private User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalStateException("User not found: " + username));
@@ -166,6 +202,11 @@ public class OrderService {
         if (order.getApproval() != null) {
             order.getApproval().getStatus();
             order.getApproval().getApprover().getUsername();
+        }
+        if (order.getCourierInfo() != null) {
+            order.getCourierInfo().getCourierName();
+            order.getCourierInfo().getTrackingNumber();
+            order.getCourierInfo().getDispatchDate();
         }
     }
 
