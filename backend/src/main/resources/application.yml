@@ -31,6 +31,8 @@ spring:
   jackson:
     serialization:
       WRITE_DATES_AS_TIMESTAMPS: false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
 
 server:
   port: ${SERVER_PORT:8080}
@@ -54,8 +56,8 @@ management:
 logging:
   level:
     root: INFO
-    org.hibernate.SQL: DEBUG
-    org.springframework.security: INFO
+    'org.hibernate.SQL': DEBUG
+    'org.springframework.security': INFO
 
 puma:
   security:

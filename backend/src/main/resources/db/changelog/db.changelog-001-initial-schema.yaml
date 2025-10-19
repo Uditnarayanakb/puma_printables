@@ -1,0 +1,361 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-users
+      author: github-copilot
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: password
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: users
+            columnNames: username
+            constraintName: uq_users_username
+        - addCheckConstraint:
+            tableName: users
+            constraintName: ck_users_role
+            checkConstraint: role IN ('STORE_USER','APPROVER')
+        - createIndex:
+            tableName: users
+            indexName: idx_users_role
+            columns:
+              - column:
+                  name: role
+  - changeSet:
+      id: 002-create-products
+      author: github-copilot
+      changes:
+        - createTable:
+            tableName: products
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: price
+                  type: NUMERIC(10,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: specifications
+                  type: JSONB
+                  constraints:
+                    nullable: false
+              - column:
+                  name: stock_quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: products
+            columnNames: sku
+            constraintName: uq_products_sku
+  - changeSet:
+      id: 003-create-orders
+      author: github-copilot
+      changes:
+        - createTable:
+            tableName: orders
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: customer_gst
+                  type: VARCHAR(20)
+              - column:
+                  name: shipping_address
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addCheckConstraint:
+            tableName: orders
+            constraintName: ck_orders_status
+            checkConstraint: status IN ('PENDING_APPROVAL','APPROVED','REJECTED','IN_TRANSIT','FULFILLED')
+        - addForeignKeyConstraint:
+            baseTableName: orders
+            baseColumnNames: user_id
+            constraintName: fk_orders_user
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: RESTRICT
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_status
+            columns:
+              - column:
+                  name: status
+  - changeSet:
+      id: 004-create-order-items
+      author: github-copilot
+      changes:
+        - createTable:
+            tableName: order_items
+            columns:
+              - column:
+                  name: order_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: unit_price
+                  type: NUMERIC(10,2)
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: order_items
+            columnNames: order_id, product_id
+            constraintName: pk_order_items
+        - addForeignKeyConstraint:
+            baseTableName: order_items
+            baseColumnNames: order_id
+            constraintName: fk_order_items_order
+            referencedTableName: orders
+            referencedColumnNames: id
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: order_items
+            baseColumnNames: product_id
+            constraintName: fk_order_items_product
+            referencedTableName: products
+            referencedColumnNames: id
+            onDelete: RESTRICT
+  - changeSet:
+      id: 005-create-approvals
+      author: github-copilot
+      changes:
+        - createTable:
+            tableName: approvals
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: order_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: approver_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: comments
+                  type: TEXT
+              - column:
+                  name: approval_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addCheckConstraint:
+            tableName: approvals
+            constraintName: ck_approvals_status
+            checkConstraint: status IN ('PENDING','APPROVED','REJECTED')
+        - addForeignKeyConstraint:
+            baseTableName: approvals
+            baseColumnNames: order_id
+            constraintName: fk_approvals_order
+            referencedTableName: orders
+            referencedColumnNames: id
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: approvals
+            baseColumnNames: approver_id
+            constraintName: fk_approvals_user
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: RESTRICT
+        - addUniqueConstraint:
+            tableName: approvals
+            columnNames: order_id
+            constraintName: uq_approvals_order
+  - changeSet:
+      id: 006-create-courier-info
+      author: github-copilot
+      changes:
+        - createTable:
+            tableName: courier_info
+            columns:
+              - column:
+                  name: order_id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: courier_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: tracking_number
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dispatch_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addForeignKeyConstraint:
+            baseTableName: courier_info
+            baseColumnNames: order_id
+            constraintName: fk_courier_info_order
+            referencedTableName: orders
+            referencedColumnNames: id
+            onDelete: CASCADE
+  - changeSet:
+      id: 007-create-audit-log
+      author: github-copilot
+      changes:
+        - createTable:
+            tableName: audit_log
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: entity_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entity_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: action
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: old_value
+                  type: JSONB
+              - column:
+                  name: new_value
+                  type: JSONB
+              - column:
+                  name: user_id
+                  type: UUID
+              - column:
+                  name: timestamp
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addCheckConstraint:
+            tableName: audit_log
+            constraintName: ck_audit_log_action
+            checkConstraint: action IN ('CREATE','UPDATE','DELETE')
+        - addForeignKeyConstraint:
+            baseTableName: audit_log
+            baseColumnNames: user_id
+            constraintName: fk_audit_log_user
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: SET NULL
+        - createIndex:
+            tableName: audit_log
+            indexName: idx_audit_log_entity
+            columns:
+              - column:
+                  name: entity_name
+        - createIndex:
+            tableName: audit_log
+            indexName: idx_audit_log_timestamp
+            columns:
+              - column:
+                  name: timestamp

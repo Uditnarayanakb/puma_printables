@@ -7,6 +7,7 @@ and delivers notification emails. The project targets Java 17 and follows a laye
 ## Tech Highlights
 
 - Spring Boot starters: Web, Security, Data JPA, Validation, Actuator, Mail
+- Liquibase-managed PostgreSQL schema with JSONB and rich constraints
 - OAuth2 resource server starter for JWT-based stateless authentication
 - PostgreSQL driver with Hibernate configured for UTC timestamps and JSONB columns
 - Lombok and configuration processor to reduce boilerplate while preserving metadata
@@ -18,6 +19,9 @@ cd backend
 ./mvnw.cmd clean verify
 ./mvnw.cmd spring-boot:run
 ```
+
+> **Tip:** If Docker Desktop is installed, integration tests will launch a disposable PostgreSQL
+> container. Without Docker, the tests are automatically skipped so the build still succeeds.
 
 Environment defaults reside in `src/main/resources/application.yml`. Override them with environment
 variables when running locally:
