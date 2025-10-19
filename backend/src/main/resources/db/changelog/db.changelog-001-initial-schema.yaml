@@ -39,7 +39,7 @@ databaseChangeLog:
         - addCheckConstraint:
             tableName: users
             constraintName: ck_users_role
-            checkConstraint: role IN ('STORE_USER','APPROVER')
+      checkConstraint: role IN ('STORE_USER','APPROVER','ADMIN')
         - createIndex:
             tableName: users
             indexName: idx_users_role
@@ -359,3 +359,25 @@ databaseChangeLog:
             columns:
               - column:
                   name: timestamp
+  - changeSet:
+    id: 008-seed-admin-user
+    author: github-copilot
+    changes:
+    - insert:
+      tableName: users
+      columns:
+        - column:
+          name: id
+          value: 00000000-0000-0000-0000-000000000001
+        - column:
+          name: username
+          value: admin
+        - column:
+          name: password
+          value: $2a$10$k7Doa541GhcBlZMuLW/ntuqufTpxPUeBh739FC7ugN6aYSaafhHNS
+        - column:
+          name: role
+          value: ADMIN
+        - column:
+          name: email
+          value: admin@pumaprintables.com
