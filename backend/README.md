@@ -41,6 +41,8 @@ variables when running locally:
 - `com.pumaprintables.platform.config` – shared Spring configuration
 - `com.pumaprintables.platform.security` – JWT configuration and auth adapters
 - `com.pumaprintables.platform.domain` – entity and repository contracts
+- `com.pumaprintables.platform.domain.model` captures `User`, `Product`, `Order`, approval workflow entities, and enumerations mapped to the Liquibase schema
+- `com.pumaprintables.platform.domain.repository` provides Spring Data repositories with focused finders for upcoming services
 - `com.pumaprintables.platform.service` – business logic orchestrations
 - `com.pumaprintables.platform.web` – controllers and DTOs
 
