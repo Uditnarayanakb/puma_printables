@@ -26,15 +26,15 @@ cd backend
 Environment defaults reside in `src/main/resources/application.yml`. Override them with environment
 variables when running locally:
 
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `SPRING_DATASOURCE_URL` | JDBC URL | `jdbc:postgresql://localhost:5432/puma_printables` |
-| `SPRING_DATASOURCE_USERNAME` | Database user | `postgres` |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | `postgres` |
-| `SPRING_MAIL_HOST` | SMTP host | `localhost` |
-| `SPRING_MAIL_PORT` | SMTP port | `1025` |
-| `JWT_SECRET` | HMAC key for token signing | `change-me-in-prod` |
-| `JWT_EXPIRY_MINUTES` | Token TTL | `60` |
+| Variable                     | Purpose                    | Default                                            |
+| ---------------------------- | -------------------------- | -------------------------------------------------- |
+| `SPRING_DATASOURCE_URL`      | JDBC URL                   | `jdbc:postgresql://localhost:5432/puma_printables` |
+| `SPRING_DATASOURCE_USERNAME` | Database user              | `postgres`                                         |
+| `SPRING_DATASOURCE_PASSWORD` | Database password          | `postgres`                                         |
+| `SPRING_MAIL_HOST`           | SMTP host                  | `localhost`                                        |
+| `SPRING_MAIL_PORT`           | SMTP port                  | `1025`                                             |
+| `JWT_SECRET`                 | HMAC key for token signing | `change-me-in-prod`                                |
+| `JWT_EXPIRY_MINUTES`         | Token TTL                  | `60`                                               |
 
 ## Project Structure
 

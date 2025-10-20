@@ -58,7 +58,7 @@ Content-Type: application/json
 }
 ```
 
-Response: `201 Created` with an `OrderResponse` JSON. Initial `status` is `PENDING_APPROVAL` and `totalAmount` reflects the sum of item quantities * product prices.
+Response: `201 Created` with an `OrderResponse` JSON. Initial `status` is `PENDING_APPROVAL` and `totalAmount` reflects the sum of item quantities \* product prices.
 
 ### Approve Order (Approver)
 
