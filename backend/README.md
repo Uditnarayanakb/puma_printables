@@ -26,18 +26,18 @@ cd backend
 Environment defaults reside in `src/main/resources/application.yml`. Override them with environment
 variables when running locally:
 
-| Variable                     | Purpose                    | Default                                            |
-| ---------------------------- | -------------------------- | -------------------------------------------------- |
-| `SPRING_DATASOURCE_URL`      | JDBC URL                   | `jdbc:postgresql://localhost:5432/puma_printables` |
-| `SPRING_DATASOURCE_USERNAME` | Database user              | `postgres`                                         |
-| `SPRING_DATASOURCE_PASSWORD` | Database password          | `postgres`                                         |
-| `SPRING_MAIL_HOST`           | SMTP host                  | `localhost`                                        |
-| `SPRING_MAIL_PORT`           | SMTP port                  | `1025`                                             |
-| `JWT_SECRET`                 | HMAC key for token signing | `change-me-in-prod`                                |
-| `JWT_EXPIRY_MINUTES`         | Token TTL                  | `60`                                               |
-| `PUMA_NOTIFICATIONS_ENABLED` | Toggle emails on/off       | `true`                                             |
-| `PUMA_NOTIFICATIONS_FROM`    | From address for emails    | `notifications@pumaprintables.local`              |
-| `PUMA_NOTIFY_APPROVERS_ON_CREATION` | CC approvers for new orders | `true`                                     |
+| Variable                            | Purpose                     | Default                                            |
+| ----------------------------------- | --------------------------- | -------------------------------------------------- |
+| `SPRING_DATASOURCE_URL`             | JDBC URL                    | `jdbc:postgresql://localhost:5432/puma_printables` |
+| `SPRING_DATASOURCE_USERNAME`        | Database user               | `postgres`                                         |
+| `SPRING_DATASOURCE_PASSWORD`        | Database password           | `postgres`                                         |
+| `SPRING_MAIL_HOST`                  | SMTP host                   | `localhost`                                        |
+| `SPRING_MAIL_PORT`                  | SMTP port                   | `1025`                                             |
+| `JWT_SECRET`                        | HMAC key for token signing  | `change-me-in-prod`                                |
+| `JWT_EXPIRY_MINUTES`                | Token TTL                   | `60`                                               |
+| `PUMA_NOTIFICATIONS_ENABLED`        | Toggle emails on/off        | `true`                                             |
+| `PUMA_NOTIFICATIONS_FROM`           | From address for emails     | `notifications@pumaprintables.local`               |
+| `PUMA_NOTIFY_APPROVERS_ON_CREATION` | CC approvers for new orders | `true`                                             |
 
 ## Project Structure
 
