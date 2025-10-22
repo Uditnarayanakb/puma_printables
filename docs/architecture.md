@@ -29,6 +29,9 @@
 | `SPRING_MAIL_HOST` `SPRING_MAIL_PORT` `SPRING_MAIL_USERNAME` `SPRING_MAIL_PASSWORD` | SMTP details                          |
 | `JWT_SECRET`                                                                        | Symmetric signing key for JWT tokens  |
 | `JWT_EXPIRY_MINUTES`                                                                | Token lifetime (default 60)           |
+| `PUMA_NOTIFICATIONS_ENABLED`                                                        | Enable/disable email sending          |
+| `PUMA_NOTIFICATIONS_FROM`                                                           | From address used for notifications   |
+| `PUMA_NOTIFY_APPROVERS_ON_CREATION`                                                 | Copy approvers when orders are created|
 
 ## 3. Database Design
 

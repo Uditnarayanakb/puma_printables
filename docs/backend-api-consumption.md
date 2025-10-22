@@ -101,3 +101,4 @@ Response: `201 Created` with the order now in `IN_TRANSIT` and nested `courierIn
 - CI/CD can replay the full lifecycle using the attached integration test `OrderLifecycleIntegrationTest` as a reference for request ordering and payload formats.
 - Scheduled jobs (for example, courier status polling) must authenticate as an `APPROVER` or `ADMIN` service account before calling courier-related endpoints.
 - When deploying to non-local environments, configure services with the correct base URL and ensure database migrations run (Liquibase executes on application start).
+- Email notifications fire on order creation, approval/rejection, and courier dispatch. Set `PUMA_NOTIFICATIONS_ENABLED=false` to silence these in environments without SMTP.

@@ -64,3 +64,7 @@ puma:
     jwt:
       secret: ${JWT_SECRET:change-me-in-prod}
       expiry-minutes: ${JWT_EXPIRY_MINUTES:60}
+  notifications:
+    enabled: ${PUMA_NOTIFICATIONS_ENABLED:true}
+    from-address: ${PUMA_NOTIFICATIONS_FROM:notifications@pumaprintables.local}
+    copy-approvers-on-creation: ${PUMA_NOTIFY_APPROVERS_ON_CREATION:true}

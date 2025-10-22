@@ -32,15 +32,17 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ApprovalRepository approvalRepository;
     private final CourierInfoRepository courierInfoRepository;
+    private final NotificationService notificationService;
 
     public OrderService(OrderRepository orderRepository, ProductRepository productRepository,
                         UserRepository userRepository, ApprovalRepository approvalRepository,
-                        CourierInfoRepository courierInfoRepository) {
+                        CourierInfoRepository courierInfoRepository, NotificationService notificationService) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
         this.approvalRepository = approvalRepository;
         this.courierInfoRepository = courierInfoRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -67,8 +69,9 @@ public class OrderService {
             order.addItem(orderItem);
         });
 
-        Order saved = orderRepository.save(order);
-        hydrateOrder(saved);
+    Order saved = orderRepository.save(order);
+    hydrateOrder(saved);
+    notificationService.notifyOrderCreated(saved);
         return saved;
     }
 
@@ -117,8 +120,9 @@ public class OrderService {
         order.setApproval(approval);
 
         approvalRepository.save(approval);
-        Order saved = orderRepository.save(order);
-        hydrateOrder(saved);
+    Order saved = orderRepository.save(order);
+    hydrateOrder(saved);
+    notificationService.notifyOrderApproved(saved);
         return saved;
     }
 
@@ -145,8 +149,9 @@ public class OrderService {
         order.setApproval(approval);
 
         approvalRepository.save(approval);
-        Order saved = orderRepository.save(order);
-        hydrateOrder(saved);
+    Order saved = orderRepository.save(order);
+    hydrateOrder(saved);
+    notificationService.notifyOrderRejected(saved);
         return saved;
     }
 
@@ -184,8 +189,9 @@ public class OrderService {
             order.setStatus(OrderStatus.IN_TRANSIT);
         }
 
-        Order saved = orderRepository.save(order);
-        hydrateOrder(saved);
+    Order saved = orderRepository.save(order);
+    hydrateOrder(saved);
+    notificationService.notifyCourierUpdated(saved);
         return saved;
     }
 
