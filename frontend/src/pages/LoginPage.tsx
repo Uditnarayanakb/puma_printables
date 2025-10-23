@@ -60,7 +60,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <>
       {isVerifying ? (
-        <div className="verification-overlay" role="status" aria-live="assertive">
+        <div
+          className="verification-overlay"
+          role="status"
+          aria-live="assertive"
+        >
           <div className="verification-card">
             <div className="verification-icon">
               <svg
@@ -82,7 +86,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         className={`centered${isVerifying ? " is-dimmed" : ""}`}
         style={{ minHeight: "100vh" }}
       >
-        <form className="auth-card" onSubmit={handleSubmit} aria-busy={isLoading}>
+        <form
+          className="auth-card"
+          onSubmit={handleSubmit}
+          aria-busy={isLoading}
+        >
           <h2>Sign in to Puma Printables</h2>
           <p className="small-muted">
             Use your backend credentials to access orders and approvals.

@@ -12,21 +12,32 @@ type AuthUser = {
 type AuthState = {
   token: string | null;
   user: AuthUser | null;
+  expiresAt: number | null;
 };
 
-function decodeToken(token: string): AuthUser | null {
+type DecodedToken = {
+  user: AuthUser;
+  expiresAt: number | null;
+};
+
+function decodeToken(token: string): DecodedToken | null {
   try {
     const payload = jwtDecode<JwtPayload>(token);
     if (!payload.sub || !payload.role) {
       return null;
     }
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
+    const now = Date.now();
+    const expiresAt =
+      typeof payload.exp === "number" ? payload.exp * 1000 : null;
+    if (expiresAt !== null && expiresAt <= now) {
       return null;
     }
     return {
-      username: payload.sub,
-      role: payload.role,
+      user: {
+        username: payload.sub,
+        role: payload.role,
+      },
+      expiresAt,
     };
   } catch (err) {
     console.warn("Unable to decode JWT payload", err);
@@ -38,17 +49,25 @@ export function useAuth() {
   const [state, setState] = useState<AuthState>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
-      return { token: null, user: null };
+      return { token: null, user: null, expiresAt: null };
     }
-    const parsed = JSON.parse(stored) as AuthState;
-    if (parsed.token) {
-      const user = decodeToken(parsed.token);
-      if (user) {
-        return { token: parsed.token, user };
+    try {
+      const parsed = JSON.parse(stored) as Partial<AuthState>;
+      if (parsed.token) {
+        const decoded = decodeToken(parsed.token);
+        if (decoded) {
+          return {
+            token: parsed.token,
+            user: decoded.user,
+            expiresAt: decoded.expiresAt,
+          };
+        }
       }
+    } catch (err) {
+      console.warn("Unable to parse stored auth state", err);
     }
     localStorage.removeItem(STORAGE_KEY);
-    return { token: null, user: null };
+    return { token: null, user: null, expiresAt: null };
   });
 
   const isAuthenticated = Boolean(state.token && state.user);
@@ -62,23 +81,41 @@ export function useAuth() {
   }, [state]);
 
   const login = useCallback((token: string) => {
-    const user = decodeToken(token);
-    if (!user) {
+    const decoded = decodeToken(token);
+    if (!decoded) {
       throw new Error("Invalid authentication token");
     }
-    setState({ token, user });
+    setState({ token, user: decoded.user, expiresAt: decoded.expiresAt });
   }, []);
 
   const logout = useCallback(() => {
-    setState({ token: null, user: null });
+    setState({ token: null, user: null, expiresAt: null });
   }, []);
 
   const guard = useCallback(() => {
     if (!state.token || !state.user) {
       throw new Error("Not authenticated");
     }
+    if (state.expiresAt !== null && state.expiresAt <= Date.now()) {
+      throw new Error("Session expired");
+    }
     return { token: state.token, user: state.user };
-  }, [state.token, state.user]);
+  }, [state.token, state.user, state.expiresAt]);
+
+  useEffect(() => {
+    if (!state.token || !state.user || state.expiresAt === null) {
+      return undefined;
+    }
+    const remaining = state.expiresAt - Date.now();
+    if (remaining <= 0) {
+      logout();
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => {
+      logout();
+    }, remaining);
+    return () => window.clearTimeout(timeoutId);
+  }, [state.token, state.user, state.expiresAt, logout]);
 
   return useMemo(
     () => ({

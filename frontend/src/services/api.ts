@@ -55,7 +55,7 @@ async function parseErrorMessage(response: Response): Promise<string> {
     if (typeof data.message === "string") {
       return data.message;
     }
-  } catch (err) {
+  } catch {
     // ignore JSON parse errors
   }
   return `Request failed with status ${response.status}`;
