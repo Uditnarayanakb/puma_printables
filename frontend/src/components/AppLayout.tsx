@@ -21,7 +21,7 @@ export function AppLayout({
   return (
     <div className="app-layout">
       <header className="app-header">
-        <div>
+        <div className="header-brand">
           <h1>{title}</h1>
           <p className="small-muted">
             Manage apparel orders and logistics in one place.
