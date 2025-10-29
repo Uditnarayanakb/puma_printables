@@ -1,4 +1,4 @@
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../services/api";
@@ -119,6 +119,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
   const [actionModal, setActionModal] = useState<ActionModalState | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchOrders = useCallback(
     async (signal?: AbortSignal) => {
@@ -140,6 +141,15 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       );
     }
   }, [fetchOrders]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshOrders();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -212,6 +222,10 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
   const pageTitle = useMemo(() => {
     return filter === "ALL" ? "All orders" : `${statusLabels[filter]} orders`;
   }, [filter]);
+
+  const heroCopy = canCreateOrders
+    ? "Create requests, track fulfilment, and dispatch faster."
+    : "Stay ahead of approvals and watch fulfilment at a glance.";
 
   const handleCreateFieldChange =
     (field: "shippingAddress" | "customerGst") =>
@@ -452,32 +466,19 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       onLogout={onLogout}
     >
       <div className="content-header">
-        <h2>{pageTitle}</h2>
-        <div className="page-controls">
-          <div className="filter-bar">
-            <label
-              className="meta-block"
-              htmlFor="status-filter"
-              style={{ margin: 0 }}
-            >
-              <span className="meta-label">Filter</span>
-              <select
-                id="status-filter"
-                className="filter-select"
-                value={filter}
-                onChange={(event) =>
-                  setFilter(event.target.value as FilterValue)
-                }
-              >
-                {FILTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
+        <div className="content-title">
+          <h2>{pageTitle}</h2>
+          <p className="small-muted">{heroCopy}</p>
+        </div>
+        <div className="content-actions">
+          <button
+            type="button"
+            className="secondary-button ghost"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing || isLoading}
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh"}
+          </button>
           {canCreateOrders ? (
             <button
               type="button"
@@ -489,6 +490,35 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
           ) : null}
         </div>
       </div>
+
+      <div className="page-toolbar">
+        <div
+          className="filter-chips"
+          role="group"
+          aria-label="Filter by order status"
+        >
+          {FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`filter-chip${
+                filter === option.value ? " is-active" : ""
+              }`}
+              onClick={() => setFilter(option.value)}
+              aria-pressed={filter === option.value}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!isLoading && !error && orders.length > 0 ? (
+        <p className="view-meta small-muted">
+          Showing {orders.length} {orders.length === 1 ? "order" : "orders"} in this
+          view.
+        </p>
+      ) : null}
 
       {successMessage ? (
         <div className="success-banner" role="status">
@@ -513,8 +543,12 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
         </div>
       ) : (
         <div className="order-grid">
-          {orders.map((order) => (
-            <article key={order.id} className="order-card">
+          {orders.map((order, index) => (
+            <article
+              key={order.id}
+              className="order-card"
+              style={{ "--card-index": String(index) } as CSSProperties}
+            >
               <div className="order-header">
                 <div>
                   <div className="meta-label">Order ID</div>

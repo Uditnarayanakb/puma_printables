@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../services/api";
 import type { NotificationEntry } from "../types/notification";
@@ -65,8 +66,17 @@ export function NotificationsPage({
   }, [notifications]);
 
   const handleRefresh = () => {
+    if (isLoading) {
+      return;
+    }
     setRefreshCount((value) => value + 1);
   };
+
+  const refreshLabel = isLoading
+    ? notifications.length > 0
+      ? "Refreshing..."
+      : "Loading..."
+    : "Refresh";
 
   return (
     <AppLayout
@@ -76,7 +86,7 @@ export function NotificationsPage({
       onLogout={onLogout}
     >
       <div className="content-header">
-        <div>
+        <div className="content-title">
           <h2>Email notifications</h2>
           <p className="small-muted">
             Review the transactional emails generated as orders flow through the
@@ -102,11 +112,12 @@ export function NotificationsPage({
             </label>
           </div>
           <button
-            className="primary-button"
+            className="secondary-button ghost"
             type="button"
             onClick={handleRefresh}
+            disabled={isLoading}
           >
-            Refresh feed
+            {refreshLabel}
           </button>
         </div>
       </div>
@@ -134,8 +145,12 @@ export function NotificationsPage({
         </div>
       ) : (
         <div className="notification-grid">
-          {notifications.map((notification) => (
-            <article key={notification.id} className="notification-card">
+          {notifications.map((notification, index) => (
+            <article
+              key={notification.id}
+              className="notification-card"
+              style={{ "--card-index": String(index) } as CSSProperties}
+            >
               <header className="notification-header">
                 <div>
                   <div className="meta-label">Subject</div>

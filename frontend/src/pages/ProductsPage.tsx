@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { api, type CreateProductPayload } from "../services/api";
 import type { Product } from "../types/product";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 
 type ProductsPageProps = {
   token: string;
@@ -311,7 +311,7 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
       onLogout={onLogout}
     >
       <div className="content-header">
-        <div>
+        <div className="content-title">
           <h2>Product catalog</h2>
           <p className="small-muted">
             Monitor inventory health, launch new SKUs, and keep specifications
@@ -378,17 +378,26 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
       </div>
 
       <section className="metric-grid" aria-label="Catalog overview">
-        <article className="metric-card">
+        <article
+          className="metric-card"
+          style={{ "--card-index": "0" } as CSSProperties}
+        >
           <h3>Total SKUs</h3>
           <p className="metric-value">{products.length}</p>
           <span className="small-muted">Across all categories</span>
         </article>
-        <article className="metric-card">
+        <article
+          className="metric-card"
+          style={{ "--card-index": "1" } as CSSProperties}
+        >
           <h3>Active inventory</h3>
           <p className="metric-value">{activeCount}</p>
           <span className="small-muted">Ready to be ordered</span>
         </article>
-        <article className="metric-card">
+        <article
+          className="metric-card"
+          style={{ "--card-index": "2" } as CSSProperties}
+        >
           <h3>Inactive slots</h3>
           <p className="metric-value">{products.length - activeCount}</p>
           <span className="small-muted">Parked for revisions</span>
@@ -396,7 +405,11 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
       </section>
 
       {isCreateOpen ? (
-        <section className="create-product-card" aria-label="Create product">
+        <section
+          className="create-product-card"
+          aria-label="Create product"
+          style={{ "--card-index": "0" } as CSSProperties}
+        >
           <header className="create-product-header">
             <div>
               <h3>Launch a new SKU</h3>
@@ -572,10 +585,16 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
         </div>
       ) : (
         <div className="products-grid">
-          {filteredProducts.map((product) => {
-            const specEntries = Object.entries(product.specifications ?? {});
+          {filteredProducts.map((product, index) => {
+            const specEntries = Object.entries(
+              product.specifications ?? {}
+            );
             return (
-              <article key={product.id} className="product-card">
+              <article
+                key={product.id}
+                className="product-card"
+                style={{ "--card-index": String(index) } as CSSProperties}
+              >
                 <header className="product-header">
                   <div>
                     <div className="meta-label">SKU</div>

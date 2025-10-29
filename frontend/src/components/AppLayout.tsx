@@ -78,7 +78,11 @@ export function AppLayout({
         <div className="header-actions">
           <span className="badge">{role}</span>
           <span>{username}</span>
-          <button className="secondary-button" type="button" onClick={onLogout}>
+          <button
+            className="secondary-button ghost"
+            type="button"
+            onClick={onLogout}
+          >
             Sign out
           </button>
         </div>
