@@ -11,6 +11,7 @@ import com.pumaprintables.platform.domain.model.enums.UserRole;
 import com.pumaprintables.platform.domain.repository.OrderRepository;
 import com.pumaprintables.platform.domain.repository.ProductRepository;
 import com.pumaprintables.platform.domain.repository.UserRepository;
+import com.pumaprintables.platform.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,6 +69,9 @@ class OrderLifecycleIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private OrderService orderService;
 
     @BeforeEach
     void setUp() {
@@ -181,6 +186,98 @@ class OrderLifecycleIntegrationTest {
         assertThat(persistedOrder.getCourierInfo()).isNotNull();
         assertThat(persistedOrder.getCourierInfo().getCourierName()).isEqualTo("Delhivery");
         assertThat(persistedOrder.getCourierInfo().getTrackingNumber()).isEqualTo("DL1234567890");
+    }
+
+    @Test
+    void whenOrderHasMultipleItems_thenAllLineItemsPersistWithAccurateTotals() throws Exception {
+        String adminToken = obtainToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+
+        ObjectNode teePayload = objectMapper.createObjectNode();
+        teePayload.put("sku", "FLOW-SKU-TEE");
+        teePayload.put("name", "Demo Tee");
+        teePayload.put("description", "White logo tee");
+        teePayload.put("price", 799.00);
+        teePayload.putObject("specifications").put("material", "cotton");
+        teePayload.put("stockQuantity", 50);
+        teePayload.put("active", true);
+
+        JsonNode teeResponse = perform(post("/api/v1/products"), teePayload, adminToken)
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .transform(this::readTree);
+
+        ObjectNode hoodiePayload = objectMapper.createObjectNode();
+        hoodiePayload.put("sku", "FLOW-SKU-HOOD");
+        hoodiePayload.put("name", "Demo Hoodie");
+        hoodiePayload.put("description", "Black zip hoodie");
+        hoodiePayload.put("price", 2199.00);
+        hoodiePayload.putObject("specifications").put("material", "fleece");
+        hoodiePayload.put("stockQuantity", 25);
+        hoodiePayload.put("active", true);
+
+        JsonNode hoodieResponse = perform(post("/api/v1/products"), hoodiePayload, adminToken)
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .transform(this::readTree);
+
+        String teeId = teeResponse.get("id").asText();
+        String hoodieId = hoodieResponse.get("id").asText();
+
+        String storeToken = obtainToken(STORE_USERNAME, STORE_PASSWORD);
+
+        ObjectNode orderPayload = objectMapper.createObjectNode();
+        orderPayload.put("shippingAddress", "123 Demo Street, Bengaluru");
+        orderPayload.put("customerGst", "GSTIN12345");
+
+        ArrayNode items = objectMapper.createArrayNode();
+        ObjectNode teeItem = objectMapper.createObjectNode();
+        teeItem.put("productId", teeId);
+        teeItem.put("quantity", 2);
+        items.add(teeItem);
+
+        ObjectNode hoodieItem = objectMapper.createObjectNode();
+        hoodieItem.put("productId", hoodieId);
+        hoodieItem.put("quantity", 1);
+        items.add(hoodieItem);
+
+        orderPayload.set("items", items);
+
+        JsonNode orderResponse = perform(post("/api/v1/orders"), orderPayload, storeToken)
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .transform(this::readTree);
+
+        ArrayNode responseItems = (ArrayNode) orderResponse.get("items");
+        assertThat(responseItems).hasSize(2);
+        assertThat(responseItems.findValuesAsText("productId"))
+            .containsExactlyInAnyOrder(teeId, hoodieId);
+
+        BigDecimal teeLineTotal = BigDecimal.valueOf(799.00).multiply(BigDecimal.valueOf(2));
+        BigDecimal hoodieLineTotal = BigDecimal.valueOf(2199.00);
+        BigDecimal expectedTotal = teeLineTotal.add(hoodieLineTotal);
+
+        responseItems.forEach(itemNode -> {
+            String productId = itemNode.get("productId").asText();
+            BigDecimal lineTotal = itemNode.get("lineTotal").decimalValue();
+            if (productId.equals(teeId)) {
+                assertThat(lineTotal).isEqualByComparingTo(teeLineTotal);
+            } else if (productId.equals(hoodieId)) {
+                assertThat(lineTotal).isEqualByComparingTo(hoodieLineTotal);
+            }
+        });
+
+        BigDecimal actualTotal = orderResponse.get("totalAmount").decimalValue();
+        assertThat(actualTotal).isEqualByComparingTo(expectedTotal);
+
+    UUID orderId = UUID.fromString(orderResponse.get("id").asText());
+    Order hydrated = orderService.getOrder(orderId);
+    assertThat(hydrated.getItems()).hasSize(2);
     }
 
     private String obtainToken(String username, String password) throws Exception {

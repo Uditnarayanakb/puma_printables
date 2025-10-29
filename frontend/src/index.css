@@ -6,22 +6,34 @@
   line-height: 1.6;
   font-feature-settings: "liga" 1, "tnum" 1;
   --surface-glass: rgba(6, 7, 10, 0.82);
-  --surface-glass-strong: rgba(3, 3, 5, 0.88);
+  --surface-glass-strong: rgba(3, 3, 5, 0.9);
+  --surface-card: rgba(12, 14, 19, 0.88);
+  --surface-card-hover: rgba(16, 19, 26, 0.94);
   --surface-glow: rgba(255, 255, 255, 0.08);
+  --surface-highlight: rgba(255, 255, 255, 0.12);
   --border-soft: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.18);
   --color-text-primary: #f5f6f8;
-  --color-text-secondary: #888f9e;
+  --color-text-secondary: #8f96a7;
   --color-accent: #34c759;
-  --color-link: #92e3b0;
-  --shadow-elevated: 0 28px 72px rgba(0, 0, 0, 0.65);
+  --color-link: #8be0ab;
+  --shadow-soft: 0 18px 48px rgba(2, 3, 7, 0.55);
+  --shadow-elevated: 0 28px 72px rgba(2, 3, 7, 0.68);
   --radius-lg: 24px;
   --radius-md: 18px;
   --radius-sm: 12px;
   --transition-snappy: 220ms cubic-bezier(0.38, 0.2, 0.12, 0.99);
+  --transition-gentle: 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  --blur-strong: 26px;
+  --max-width-content: 1280px;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 a {
@@ -48,6 +60,11 @@ body {
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(52, 199, 89, 0.35);
+  color: #0b0d12;
 }
 
 #root {

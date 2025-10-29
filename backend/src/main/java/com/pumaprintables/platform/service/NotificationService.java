@@ -1,9 +1,11 @@
 package com.pumaprintables.platform.service;
 
+import com.pumaprintables.platform.domain.model.NotificationLog;
 import com.pumaprintables.platform.domain.model.Order;
 import com.pumaprintables.platform.domain.model.OrderItem;
 import com.pumaprintables.platform.domain.model.User;
 import com.pumaprintables.platform.domain.model.enums.UserRole;
+import com.pumaprintables.platform.domain.repository.NotificationLogRepository;
 import com.pumaprintables.platform.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,18 +31,19 @@ public class NotificationService {
     private final JavaMailSender mailSender;
     private final NotificationProperties properties;
     private final UserRepository userRepository;
+    private final NotificationLogRepository notificationLogRepository;
 
-    public NotificationService(JavaMailSender mailSender, NotificationProperties properties, UserRepository userRepository) {
+    public NotificationService(JavaMailSender mailSender,
+                               NotificationProperties properties,
+                               UserRepository userRepository,
+                               NotificationLogRepository notificationLogRepository) {
         this.mailSender = mailSender;
         this.properties = properties;
         this.userRepository = userRepository;
+        this.notificationLogRepository = notificationLogRepository;
     }
 
     public void notifyOrderCreated(Order order) {
-        if (!properties.isEnabled()) {
-            return;
-        }
-
         List<String> recipients = new ArrayList<>();
         addIfPresent(recipients, order.getUser());
 
@@ -53,34 +56,31 @@ public class NotificationService {
 
         String subject = "Order " + order.getId() + " is pending approval";
         String body = buildOrderSummary("A new order has been placed and awaits approval.", order);
-        send(recipients, subject, body);
+        dispatch(recipients, subject, body);
     }
 
     public void notifyOrderApproved(Order order) {
-        sendIfEnabled(order.getUser(),
+        sendToUser(order.getUser(),
             "Order " + order.getId() + " approved",
             buildOrderSummary("Good news! Your order has been approved.", order));
     }
 
     public void notifyOrderRejected(Order order) {
-        sendIfEnabled(order.getUser(),
+        sendToUser(order.getUser(),
             "Order " + order.getId() + " rejected",
             buildOrderSummary("Unfortunately the order was rejected.", order));
     }
 
     public void notifyCourierUpdated(Order order) {
-        sendIfEnabled(order.getUser(),
+        sendToUser(order.getUser(),
             "Order " + order.getId() + " dispatched",
             buildOrderSummary("Your order is on the move. Courier details are included below.", order));
     }
 
-    private void sendIfEnabled(User user, String subject, String body) {
-        if (!properties.isEnabled()) {
-            return;
-        }
+    private void sendToUser(User user, String subject, String body) {
         List<String> recipients = new ArrayList<>();
         addIfPresent(recipients, user);
-        send(recipients, subject, body);
+        dispatch(recipients, subject, body);
     }
 
     private void addIfPresent(List<String> recipients, User user) {
@@ -90,9 +90,21 @@ public class NotificationService {
             .ifPresent(recipients::add);
     }
 
-    private void send(List<String> recipients, String subject, String body) {
+    private void dispatch(List<String> recipients, String subject, String body) {
         if (recipients.isEmpty()) {
             log.debug("Skipping email '{}' because no recipients were resolved", subject);
+            return;
+        }
+
+        NotificationLog logEntry = NotificationLog.builder()
+            .subject(subject)
+            .recipients(String.join(", ", recipients))
+            .body(body)
+            .build();
+        notificationLogRepository.save(logEntry);
+
+        if (!properties.isEnabled()) {
+            log.debug("Email notifications disabled. Captured log entry for '{}'", subject);
             return;
         }
 

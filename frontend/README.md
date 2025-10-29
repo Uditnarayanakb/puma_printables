@@ -55,6 +55,8 @@ The dev server expects the backend (and its Postgres container) to be running. U
 - Auth flow with JWT verification, automatic expiry handling, and protected routes.
 - Dark theme layout with glass surfaces, responsive navigation, and reduced-motion fallbacks.
 - Orders, Products, and Reports pages wired to `/api/v1` endpoints with filtering, metrics, and loading/error states.
+- Catalog workbench to create SKUs on the fly, including search, sort, and spec management.
+- Notifications hub that captures outbound mail content for demo walkthroughs and QA.
 - Demo verification animation on successful sign-in for additional polish.
 
 ## Project structure

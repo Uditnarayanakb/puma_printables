@@ -11,6 +11,49 @@ export type AppLayoutProps = {
   children: ReactNode;
 };
 
+type KnownRole = "ADMIN" | "APPROVER" | "STORE_USER";
+
+type NavItem = {
+  to: string;
+  label: string;
+  icon: string;
+  allowedRoles: KnownRole[];
+};
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    to: "/orders",
+    label: "Orders",
+    icon: "📦",
+    allowedRoles: ["ADMIN", "APPROVER", "STORE_USER"],
+  },
+  {
+    to: "/products",
+    label: "Products",
+    icon: "🛍️",
+    allowedRoles: ["ADMIN", "STORE_USER"],
+  },
+  {
+    to: "/reports",
+    label: "Reports",
+    icon: "📈",
+    allowedRoles: ["ADMIN"],
+  },
+  {
+    to: "/notifications",
+    label: "Notifications",
+    icon: "✉️",
+    allowedRoles: ["ADMIN", "APPROVER"],
+  },
+];
+
+function normalizeRole(role: string): KnownRole {
+  if (role === "ADMIN" || role === "APPROVER" || role === "STORE_USER") {
+    return role;
+  }
+  return "STORE_USER";
+}
+
 export function AppLayout({
   title,
   username,
@@ -18,6 +61,11 @@ export function AppLayout({
   onLogout,
   children,
 }: AppLayoutProps) {
+  const normalizedRole = normalizeRole(role);
+  const navItemsForRole = NAV_ITEMS.filter((item) =>
+    item.allowedRoles.includes(normalizedRole)
+  );
+
   return (
     <div className="app-layout">
       <header className="app-header">
@@ -41,39 +89,20 @@ export function AppLayout({
           <div>
             <h2>Navigation</h2>
             <nav className="nav-links">
-              <NavLink
-                to="/orders"
-                className={({ isActive }) =>
-                  `nav-link${isActive ? " active" : ""}`
-                }
-              >
-                <span className="nav-link-icon" aria-hidden="true">
-                  📦
-                </span>
-                Orders
-              </NavLink>
-              <NavLink
-                to="/products"
-                className={({ isActive }) =>
-                  `nav-link${isActive ? " active" : ""}`
-                }
-              >
-                <span className="nav-link-icon" aria-hidden="true">
-                  🛍️
-                </span>
-                Products
-              </NavLink>
-              <NavLink
-                to="/reports"
-                className={({ isActive }) =>
-                  `nav-link${isActive ? " active" : ""}`
-                }
-              >
-                <span className="nav-link-icon" aria-hidden="true">
-                  📈
-                </span>
-                Reports
-              </NavLink>
+              {navItemsForRole.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `nav-link${isActive ? " active" : ""}`
+                  }
+                >
+                  <span className="nav-link-icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
           </div>
         </aside>

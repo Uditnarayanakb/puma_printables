@@ -5,6 +5,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { OrdersPage } from "./pages/OrdersPage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 
 function App() {
   const { isAuthenticated, login, logout, token, user } = useAuth();
@@ -54,6 +55,19 @@ function App() {
           <ProtectedRoute isAuthenticated={isAuthenticated}>
             {token && user ? (
               <ReportsPage token={token} user={user} onLogout={logout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )}
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated}>
+            {token && user ? (
+              <NotificationsPage token={token} user={user} onLogout={logout} />
             ) : (
               <Navigate to="/login" replace />
             )}

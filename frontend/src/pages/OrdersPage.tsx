@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../services/api";
 import type { Order, OrderStatus } from "../types/order";
+import type { Product } from "../types/product";
 
 const statusLabels: Record<OrderStatus, string> = {
   PENDING_APPROVAL: "Pending approval",
@@ -29,6 +31,21 @@ const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   timeStyle: "short",
 });
 
+const MAX_ORDER_ITEMS = 5;
+const COURIER_OPTIONS = [
+  "Delhivery",
+  "Blue Dart",
+  "Ecom Express",
+  "Shadowfax",
+  "DTDC",
+];
+
+const generateTrackingNumber = () => {
+  const base = Math.random().toString(36).slice(2, 10).toUpperCase();
+  const suffix = Date.now().toString().slice(-4);
+  return `${base}${suffix}`;
+};
+
 type OrdersPageProps = {
   token: string;
   user: {
@@ -40,6 +57,22 @@ type OrdersPageProps = {
 
 type FilterValue = OrderStatus | "ALL";
 
+type ActionModalState =
+  | {
+      type: "approve" | "reject";
+      order: Order;
+      comments: string;
+    }
+  | {
+      type: "courier";
+      order: Order;
+      courierName: string;
+      trackingNumber: string;
+      dispatchDate: string;
+    };
+
+type CourierField = "courierName" | "trackingNumber" | "dispatchDate";
+
 const FILTER_OPTIONS: Array<{ label: string; value: FilterValue }> = [
   { label: "All statuses", value: "ALL" },
   { label: statusLabels.PENDING_APPROVAL, value: "PENDING_APPROVAL" },
@@ -49,22 +82,72 @@ const FILTER_OPTIONS: Array<{ label: string; value: FilterValue }> = [
   { label: statusLabels.FULFILLED, value: "FULFILLED" },
 ];
 
+const emptyCreateForm = () => ({
+  shippingAddress: "",
+  customerGst: "",
+  items: [{ productId: "", quantity: 1 }],
+});
+
+const toDateTimeLocal = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
+  const canCreateOrders = user.role === "STORE_USER" || user.role === "ADMIN";
+  const canManageApprovals = user.role === "APPROVER" || user.role === "ADMIN";
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<FilterValue>("ALL");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [isProductsLoading, setIsProductsLoading] = useState(false);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+
+  const [actionModal, setActionModal] = useState<ActionModalState | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+
+  const fetchOrders = useCallback(
+    async (signal?: AbortSignal) => {
+      const statusParam = filter === "ALL" ? undefined : filter;
+      return api.getOrders(token, statusParam, signal);
+    },
+    [token, filter]
+  );
+
+  const refreshOrders = useCallback(async () => {
+    try {
+      const data = await fetchOrders();
+      setOrders(data);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to refresh orders right now"
+      );
+    }
+  }, [fetchOrders]);
 
   useEffect(() => {
     const controller = new AbortController();
     setIsLoading(true);
     setError(null);
 
-    const statusParam = filter === "ALL" ? undefined : filter;
-
-    api
-      .getOrders(token, statusParam, controller.signal)
-      .then((data: Order[]) => {
+    fetchOrders(controller.signal)
+      .then((data) => {
         setOrders(data);
       })
       .catch((err: unknown) => {
@@ -82,11 +165,284 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       });
 
     return () => controller.abort();
-  }, [token, filter]);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    if (!successMessage) {
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => setSuccessMessage(null), 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, [successMessage]);
+
+  useEffect(() => {
+    if (!showCreateModal || !canCreateOrders) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setProductsError(null);
+    setIsProductsLoading(true);
+
+    api
+      .getProducts(token, controller.signal)
+      .then((data) => {
+        const activeProducts = data.filter((product) => product.active);
+        setProducts(activeProducts);
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setProductsError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load catalog data right now"
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsProductsLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [showCreateModal, canCreateOrders, token]);
 
   const pageTitle = useMemo(() => {
     return filter === "ALL" ? "All orders" : `${statusLabels[filter]} orders`;
   }, [filter]);
+
+  const handleCreateFieldChange =
+    (field: "shippingAddress" | "customerGst") =>
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = event.target.value;
+      setCreateForm((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
+
+  const handleCreateItemChange = (
+    index: number,
+    field: "productId" | "quantity",
+    value: string
+  ) => {
+    setCreateForm((prev) => {
+      const nextItems = prev.items.map((item, itemIndex) => {
+        if (itemIndex !== index) {
+          return item;
+        }
+        if (field === "quantity") {
+          const parsed = Number.parseInt(value, 10);
+          return {
+            ...item,
+            quantity: Number.isNaN(parsed) ? 1 : Math.max(1, parsed),
+          };
+        }
+        return { ...item, productId: value };
+      });
+      return { ...prev, items: nextItems };
+    });
+  };
+
+  const handleAddOrderItem = () => {
+    setCreateForm((prev) => {
+      if (prev.items.length >= MAX_ORDER_ITEMS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        items: [...prev.items, { productId: "", quantity: 1 }],
+      };
+    });
+  };
+
+  const handleRemoveOrderItem = (index: number) => {
+    setCreateForm((prev) => {
+      if (prev.items.length === 1) {
+        return prev;
+      }
+      const nextItems = prev.items.filter(
+        (_, itemIndex) => itemIndex !== index
+      );
+      return { ...prev, items: nextItems };
+    });
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCreateError(null);
+    setCreateSubmitting(false);
+    setCreateForm(emptyCreateForm);
+  };
+
+  const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreateError(null);
+
+    const shippingAddress = createForm.shippingAddress.trim();
+    if (!shippingAddress) {
+      setCreateError("Shipping address is required");
+      return;
+    }
+
+    const preparedItems = createForm.items
+      .filter((item) => item.productId)
+      .map((item) => ({
+        productId: item.productId,
+        quantity: Math.max(1, item.quantity),
+      }));
+
+    if (preparedItems.length === 0) {
+      setCreateError("Choose at least one product");
+      return;
+    }
+
+    setCreateSubmitting(true);
+
+    try {
+      await api.createOrder(token, {
+        shippingAddress,
+        customerGst: createForm.customerGst.trim() || null,
+        items: preparedItems,
+      });
+      closeCreateModal();
+      setSuccessMessage("Order created successfully");
+      await refreshOrders();
+    } catch (err) {
+      setCreateError(
+        err instanceof Error ? err.message : "Unable to create order"
+      );
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
+  const openApproveModal = (order: Order) => {
+    setActionError(null);
+    setActionModal({ type: "approve", order, comments: "" });
+  };
+
+  const openRejectModal = (order: Order) => {
+    setActionError(null);
+    setActionModal({ type: "reject", order, comments: "" });
+  };
+
+  const openCourierModal = (order: Order) => {
+    const defaultDate = order.courierInfo?.dispatchDate
+      ? toDateTimeLocal(new Date(order.courierInfo.dispatchDate))
+      : toDateTimeLocal(new Date());
+    const fallbackCourier =
+      order.courierInfo?.courierName ?? COURIER_OPTIONS[0];
+    const fallbackTracking =
+      order.courierInfo?.trackingNumber ?? generateTrackingNumber();
+
+    setActionError(null);
+    setActionModal({
+      type: "courier",
+      order,
+      courierName: fallbackCourier,
+      trackingNumber: fallbackTracking,
+      dispatchDate: defaultDate,
+    });
+  };
+
+  const closeActionModal = () => {
+    setActionModal(null);
+    setActionError(null);
+    setActionSubmitting(false);
+  };
+
+  const handleActionSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!actionModal) {
+      return;
+    }
+
+    setActionSubmitting(true);
+    setActionError(null);
+
+    try {
+      if (actionModal.type === "approve" || actionModal.type === "reject") {
+        if (!actionModal.comments.trim()) {
+          setActionError("Comments are required");
+          setActionSubmitting(false);
+          return;
+        }
+        if (actionModal.type === "approve") {
+          await api.approveOrder(token, actionModal.order.id, {
+            comments: actionModal.comments.trim(),
+          });
+          setSuccessMessage("Order approved");
+        } else {
+          await api.rejectOrder(token, actionModal.order.id, {
+            comments: actionModal.comments.trim(),
+          });
+          setSuccessMessage("Order rejected");
+        }
+      } else if (actionModal.type === "courier") {
+        const courierName = actionModal.courierName.trim();
+        const trackingNumber = actionModal.trackingNumber.trim();
+        const dispatchDate = actionModal.dispatchDate;
+
+        if (!courierName || !trackingNumber || !dispatchDate) {
+          setActionError("All courier fields are required");
+          setActionSubmitting(false);
+          return;
+        }
+
+        const isoDate = new Date(dispatchDate).toISOString();
+
+        await api.addCourierInfo(token, actionModal.order.id, {
+          courierName,
+          trackingNumber,
+          dispatchDate: isoDate,
+        });
+        setSuccessMessage("Courier details captured");
+      }
+
+      closeActionModal();
+      await refreshOrders();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Unable to process request"
+      );
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleActionFieldChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    if (!actionModal || actionModal.type === "courier") {
+      return;
+    }
+    setActionModal({ ...actionModal, comments: event.target.value });
+  };
+
+  const handleCourierFieldChange =
+    (field: CourierField) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      if (!actionModal || actionModal.type !== "courier") {
+        return;
+      }
+
+      setActionModal({
+        ...actionModal,
+        [field]: event.target.value,
+      });
+    };
+
+  const handleGenerateTrackingNumber = () => {
+    if (!actionModal || actionModal.type !== "courier") {
+      return;
+    }
+
+    setActionModal({
+      ...actionModal,
+      trackingNumber: generateTrackingNumber(),
+    });
+  };
 
   return (
     <AppLayout
@@ -97,28 +453,48 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
     >
       <div className="content-header">
         <h2>{pageTitle}</h2>
-        <div className="filter-bar">
-          <label
-            className="meta-block"
-            htmlFor="status-filter"
-            style={{ margin: 0 }}
-          >
-            <span className="meta-label">Filter</span>
-            <select
-              id="status-filter"
-              className="filter-select"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value as FilterValue)}
+        <div className="page-controls">
+          <div className="filter-bar">
+            <label
+              className="meta-block"
+              htmlFor="status-filter"
+              style={{ margin: 0 }}
             >
-              {FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <span className="meta-label">Filter</span>
+              <select
+                id="status-filter"
+                className="filter-select"
+                value={filter}
+                onChange={(event) =>
+                  setFilter(event.target.value as FilterValue)
+                }
+              >
+                {FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {canCreateOrders ? (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => setShowCreateModal(true)}
+            >
+              New order
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {successMessage ? (
+        <div className="success-banner" role="status">
+          {successMessage}
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div className="centered">
@@ -130,7 +506,9 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
         <div className="empty-state">
           <h3>No orders found</h3>
           <p className="small-muted">
-            Try switching filters or create a new order from the backend.
+            {canCreateOrders
+              ? "Use the New order button to raise a request."
+              : "Try switching filters or ask the store team to raise an order."}
           </p>
         </div>
       ) : (
@@ -183,6 +561,39 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                 </tbody>
               </table>
 
+              {canManageApprovals ? (
+                <div className="order-actions">
+                  {order.status === "PENDING_APPROVAL" ? (
+                    <>
+                      <button
+                        type="button"
+                        className="primary-button action-button"
+                        onClick={() => openApproveModal(order)}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button action-button danger"
+                        onClick={() => openRejectModal(order)}
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : null}
+
+                  {order.status === "APPROVED" && !order.courierInfo ? (
+                    <button
+                      type="button"
+                      className="secondary-button action-button"
+                      onClick={() => openCourierModal(order)}
+                    >
+                      Add courier
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="order-footer">
                 <div>
                   <div className="meta-label">Total amount</div>
@@ -213,6 +624,285 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
           ))}
         </div>
       )}
+
+      {showCreateModal ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <header className="modal-header">
+              <div>
+                <h3>Raise a new order</h3>
+                <p className="small-muted">
+                  Pick products from the live catalog and capture fulfilment
+                  details.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={closeCreateModal}
+              >
+                Close
+              </button>
+            </header>
+
+            {productsError ? (
+              <div className="error-banner" role="alert">
+                {productsError}
+              </div>
+            ) : null}
+
+            {createError ? (
+              <div className="error-banner" role="alert">
+                {createError}
+              </div>
+            ) : null}
+
+            <form className="modal-form" onSubmit={handleCreateOrder}>
+              <label className="form-field" htmlFor="order-shipping">
+                <span className="meta-label">Shipping address</span>
+                <textarea
+                  id="order-shipping"
+                  required
+                  rows={3}
+                  value={createForm.shippingAddress}
+                  onChange={handleCreateFieldChange("shippingAddress")}
+                />
+              </label>
+
+              <label className="form-field" htmlFor="order-gst">
+                <span className="meta-label">Customer GST (optional)</span>
+                <input
+                  id="order-gst"
+                  type="text"
+                  value={createForm.customerGst}
+                  onChange={handleCreateFieldChange("customerGst")}
+                  placeholder="GSTIN12345"
+                />
+              </label>
+
+              <fieldset className="order-items-fieldset">
+                <legend>Line items</legend>
+                <p className="small-muted">
+                  Select up to {MAX_ORDER_ITEMS} SKUs. Quantities default to 1.
+                </p>
+
+                {isProductsLoading ? (
+                  <div className="centered">
+                    <div className="spinner" aria-label="Loading products" />
+                  </div>
+                ) : products.length === 0 ? (
+                  <p className="small-muted">
+                    No active products available. Add catalog entries first.
+                  </p>
+                ) : (
+                  <div className="item-grid">
+                    {createForm.items.map((item, index) => (
+                      <div key={index} className="item-row">
+                        <label
+                          className="form-field"
+                          htmlFor={`order-item-${index}`}
+                        >
+                          <span className="meta-label">Product</span>
+                          <select
+                            id={`order-item-${index}`}
+                            required
+                            value={item.productId}
+                            onChange={(event) =>
+                              handleCreateItemChange(
+                                index,
+                                "productId",
+                                event.target.value
+                              )
+                            }
+                          >
+                            <option value="">Select a SKU</option>
+                            {products.map((product) => (
+                              <option key={product.id} value={product.id}>
+                                {product.name} ·{" "}
+                                {currencyFormatter.format(product.price)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label
+                          className="form-field"
+                          htmlFor={`order-qty-${index}`}
+                        >
+                          <span className="meta-label">Quantity</span>
+                          <input
+                            id={`order-qty-${index}`}
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(event) =>
+                              handleCreateItemChange(
+                                index,
+                                "quantity",
+                                event.target.value
+                              )
+                            }
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          className="ghost-icon-button"
+                          onClick={() => handleRemoveOrderItem(index)}
+                          disabled={createForm.items.length === 1}
+                          aria-label="Remove line item"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={handleAddOrderItem}
+                    disabled={
+                      createForm.items.length >= MAX_ORDER_ITEMS ||
+                      products.length === 0
+                    }
+                  >
+                    Add another item
+                  </button>
+                </div>
+              </fieldset>
+
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={createSubmitting || products.length === 0}
+                >
+                  {createSubmitting ? "Creating…" : "Create order"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {actionModal ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <header className="modal-header">
+              <div>
+                <h3>
+                  {actionModal.type === "approve"
+                    ? "Approve order"
+                    : actionModal.type === "reject"
+                    ? "Reject order"
+                    : actionModal.order.courierInfo
+                    ? "Update courier details"
+                    : "Add courier details"}
+                </h3>
+                <p className="small-muted">Order ID: {actionModal.order.id}</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={closeActionModal}
+              >
+                Close
+              </button>
+            </header>
+
+            {actionError ? (
+              <div className="error-banner" role="alert">
+                {actionError}
+              </div>
+            ) : null}
+
+            <form className="modal-form" onSubmit={handleActionSubmit}>
+              {actionModal.type === "approve" ||
+              actionModal.type === "reject" ? (
+                <label className="form-field" htmlFor="action-comments">
+                  <span className="meta-label">Comments</span>
+                  <textarea
+                    id="action-comments"
+                    required
+                    rows={3}
+                    value={actionModal.comments}
+                    onChange={handleActionFieldChange}
+                  />
+                </label>
+              ) : null}
+
+              {actionModal.type === "courier" ? (
+                <>
+                  <label className="form-field" htmlFor="courier-name">
+                    <span className="meta-label">Courier</span>
+                    <select
+                      id="courier-name"
+                      required
+                      value={actionModal.courierName}
+                      onChange={handleCourierFieldChange("courierName")}
+                    >
+                      {COURIER_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                      {!COURIER_OPTIONS.includes(actionModal.courierName) ? (
+                        <option value={actionModal.courierName}>
+                          {actionModal.courierName}
+                        </option>
+                      ) : null}
+                    </select>
+                  </label>
+
+                  <label className="form-field" htmlFor="courier-tracking">
+                    <span className="meta-label">Tracking number</span>
+                    <div className="input-with-button">
+                      <input
+                        id="courier-tracking"
+                        type="text"
+                        required
+                        value={actionModal.trackingNumber}
+                        onChange={handleCourierFieldChange("trackingNumber")}
+                      />
+                      <button
+                        type="button"
+                        className="secondary-button slim"
+                        onClick={handleGenerateTrackingNumber}
+                      >
+                        Generate
+                      </button>
+                    </div>
+                  </label>
+
+                  <label className="form-field" htmlFor="courier-dispatch">
+                    <span className="meta-label">Dispatch date</span>
+                    <input
+                      id="courier-dispatch"
+                      type="datetime-local"
+                      required
+                      value={actionModal.dispatchDate}
+                      onChange={handleCourierFieldChange("dispatchDate")}
+                    />
+                  </label>
+                </>
+              ) : null}
+
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={actionSubmitting}
+                >
+                  {actionSubmitting ? "Submitting…" : "Submit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </AppLayout>
   );
 }

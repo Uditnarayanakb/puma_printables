@@ -1,5 +1,6 @@
 import type { Order } from "../types/order";
 import type { Product } from "../types/product";
+import type { NotificationEntry } from "../types/notification";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
@@ -70,6 +71,35 @@ export type LoginResponse = {
   token: string;
 };
 
+export type CreateProductPayload = {
+  sku: string;
+  name: string;
+  description: string;
+  price: number;
+  specifications: Record<string, string | number | boolean>;
+  stockQuantity: number;
+  active: boolean;
+};
+
+export type CreateOrderPayload = {
+  shippingAddress: string;
+  customerGst?: string | null;
+  items: Array<{
+    productId: string;
+    quantity: number;
+  }>;
+};
+
+export type ApprovalPayload = {
+  comments: string;
+};
+
+export type CourierInfoPayload = {
+  courierName: string;
+  trackingNumber: string;
+  dispatchDate: string;
+};
+
 export const api = {
   login(input: LoginRequest, signal?: AbortSignal) {
     return request<LoginResponse>("/api/v1/auth/login", {
@@ -93,6 +123,85 @@ export const api = {
 
   getProducts(token: string, signal?: AbortSignal) {
     return request<Product[]>("/api/v1/products", {
+      token,
+      signal,
+    });
+  },
+
+  createProduct(
+    token: string,
+    payload: CreateProductPayload,
+    signal?: AbortSignal
+  ) {
+    return request<Product>("/api/v1/products", {
+      method: "POST",
+      body: payload,
+      token,
+      signal,
+    });
+  },
+
+  getNotifications(token: string, limit = 20, signal?: AbortSignal) {
+    const query = new URLSearchParams({ limit: String(limit) });
+    return request<NotificationEntry[]>(
+      `/api/v1/notifications?${query.toString()}`,
+      {
+        token,
+        signal,
+      }
+    );
+  },
+
+  createOrder(
+    token: string,
+    payload: CreateOrderPayload,
+    signal?: AbortSignal
+  ) {
+    return request<Order>("/api/v1/orders", {
+      method: "POST",
+      body: payload,
+      token,
+      signal,
+    });
+  },
+
+  approveOrder(
+    token: string,
+    orderId: string,
+    payload: ApprovalPayload,
+    signal?: AbortSignal
+  ) {
+    return request<Order>(`/api/v1/orders/${orderId}/approve`, {
+      method: "POST",
+      body: payload,
+      token,
+      signal,
+    });
+  },
+
+  rejectOrder(
+    token: string,
+    orderId: string,
+    payload: ApprovalPayload,
+    signal?: AbortSignal
+  ) {
+    return request<Order>(`/api/v1/orders/${orderId}/reject`, {
+      method: "POST",
+      body: payload,
+      token,
+      signal,
+    });
+  },
+
+  addCourierInfo(
+    token: string,
+    orderId: string,
+    payload: CourierInfoPayload,
+    signal?: AbortSignal
+  ) {
+    return request<Order>(`/api/v1/orders/${orderId}/courier`, {
+      method: "POST",
+      body: payload,
       token,
       signal,
     });

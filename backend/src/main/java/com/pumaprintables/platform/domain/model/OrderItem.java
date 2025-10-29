@@ -53,13 +53,12 @@ public class OrderItem {
     private BigDecimal unitPrice;
 
     public static OrderItem of(Order order, Product product, Integer quantity, BigDecimal unitPrice) {
-        OrderItem item = OrderItem.builder()
-            .id(new OrderItemId())
-            .order(order)
-            .product(product)
-            .quantity(quantity)
-            .unitPrice(unitPrice)
-            .build();
+        OrderItem item = new OrderItem();
+        item.setId(new OrderItemId());
+        item.setOrder(order);
+        item.setProduct(product);
+        item.setQuantity(quantity);
+        item.setUnitPrice(unitPrice);
         return item;
     }
 
