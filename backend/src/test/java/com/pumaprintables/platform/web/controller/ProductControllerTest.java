@@ -36,6 +36,7 @@ class ProductControllerTest {
 
     private static final String ADMIN_USERNAME = "product-admin";
     private static final String ADMIN_PASSWORD = "Admin@123";
+    private static final String PRODUCT_IMAGE_URL = "https://images.example.com/products/hoodie.png";
 
     @Container
     @ServiceConnection
@@ -82,6 +83,7 @@ class ProductControllerTest {
         payload.put("sku", "SKU-1000");
         payload.put("name", "Puma Hoodie");
         payload.put("description", "Warm fleece hoodie");
+    payload.put("imageUrl", PRODUCT_IMAGE_URL);
         payload.put("price", 2499.00);
         payload.set("specifications", specifications);
         payload.put("stockQuantity", 50);
@@ -93,9 +95,11 @@ class ProductControllerTest {
                 .content(objectMapper.writeValueAsString(payload)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.sku").value("SKU-1000"))
+            .andExpect(jsonPath("$.imageUrl").value(PRODUCT_IMAGE_URL))
             .andExpect(jsonPath("$.active").value(true));
 
-        assertThat(productRepository.findBySku("SKU-1000")).isPresent();
+        Product savedProduct = productRepository.findBySku("SKU-1000").orElseThrow();
+        assertThat(savedProduct.getImageUrl()).isEqualTo(PRODUCT_IMAGE_URL);
     }
 
     @Test
@@ -106,6 +110,7 @@ class ProductControllerTest {
             .sku("SKU-2000")
             .name("Puma T-Shirt")
             .description("Breathable sports tee")
+            .imageUrl(PRODUCT_IMAGE_URL)
             .price(new BigDecimal("1299.00"))
             .specifications(objectMapper.readTree("{\"material\":\"polyester\"}"))
             .stockQuantity(100)
@@ -116,7 +121,8 @@ class ProductControllerTest {
         mockMvc.perform(get("/api/v1/products")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].sku").value("SKU-2000"));
+            .andExpect(jsonPath("$[0].sku").value("SKU-2000"))
+            .andExpect(jsonPath("$[0].imageUrl").value(PRODUCT_IMAGE_URL));
     }
 
     private String obtainToken() throws Exception {

@@ -44,6 +44,7 @@ class OrderControllerTest {
     private static final String STORE_PASSWORD = "Store@123";
     private static final String APPROVER_USERNAME = "approver-user";
     private static final String APPROVER_PASSWORD = "Approve@123";
+    private static final String PRODUCT_IMAGE_URL = "https://images.example.com/products/jacket.png";
 
     @Container
     @ServiceConnection
@@ -96,6 +97,7 @@ class OrderControllerTest {
             .sku("SKU-5000")
             .name("Puma Jacket")
             .description("Water-resistant jacket")
+            .imageUrl(PRODUCT_IMAGE_URL)
             .price(new BigDecimal("3499.00"))
             .specifications(specifications)
             .stockQuantity(25)
@@ -118,6 +120,7 @@ class OrderControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.status").value(OrderStatus.PENDING_APPROVAL.name()))
             .andExpect(jsonPath("$.items[0].productId").value(product.getId().toString()))
+            .andExpect(jsonPath("$.items[0].imageUrl").value(PRODUCT_IMAGE_URL))
             .andExpect(jsonPath("$.totalAmount").value(6998.00));
 
         assertThat(orderRepository.count()).isEqualTo(1);
@@ -135,6 +138,7 @@ class OrderControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(payload)))
             .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.items[0].imageUrl").value(PRODUCT_IMAGE_URL))
             .andReturn();
 
         String orderId = objectMapper.readTree(orderResponse.getResponse().getContentAsString()).get("id").asText();
@@ -166,6 +170,7 @@ class OrderControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(payload)))
             .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.items[0].imageUrl").value(PRODUCT_IMAGE_URL))
             .andReturn();
 
         String orderId = objectMapper.readTree(orderResponse.getResponse().getContentAsString()).get("id").asText();

@@ -39,6 +39,8 @@ const COURIER_OPTIONS = [
   "Shadowfax",
   "DTDC",
 ];
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+const SKELETON_PLACEHOLDERS = 3;
 
 const generateTrackingNumber = () => {
   const base = Math.random().toString(36).slice(2, 10).toUpperCase();
@@ -106,6 +108,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -123,6 +126,10 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const skeletonPlaceholders = useMemo(
+    () => Array.from({ length: SKELETON_PLACEHOLDERS }),
+    []
+  );
 
   const fetchOrders = useCallback(
     async (signal?: AbortSignal) => {
@@ -136,6 +143,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
     try {
       const data = await fetchOrders();
       setOrders(data);
+      setLastSyncedAt(new Date());
     } catch (err) {
       setError(
         err instanceof Error
@@ -162,6 +170,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
     fetchOrders(controller.signal)
       .then((data) => {
         setOrders(data);
+        setLastSyncedAt(new Date());
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) {
@@ -179,6 +188,14 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
 
     return () => controller.abort();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      refreshOrders().catch(() => undefined);
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [refreshOrders]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -539,7 +556,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       {!isLoading && !error && orders.length > 0 ? (
         <p className="view-meta small-muted">
           Showing {orders.length} {orders.length === 1 ? "order" : "orders"} in
-          this view.
+          this view{lastSyncedAt ? ` • Updated ${dateFormatter.format(lastSyncedAt)}` : ""}.
         </p>
       ) : null}
 
@@ -550,8 +567,22 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       ) : null}
 
       {isLoading ? (
-        <div className="centered">
-          <div className="spinner" aria-label="Loading orders" />
+        <div className="order-grid skeleton-grid" aria-hidden="true">
+          {skeletonPlaceholders.map((_, index) => (
+            <article key={index} className="order-card skeleton-card">
+              <div className="skeleton-line skeleton-line-lg" />
+              <div className="skeleton-line skeleton-line-sm" />
+              <div className="skeleton-avatar-row">
+                <div className="skeleton-avatar" />
+                <div className="skeleton-body">
+                  <div className="skeleton-line skeleton-line-md" />
+                  <div className="skeleton-line skeleton-line-xs" />
+                </div>
+              </div>
+              <div className="skeleton-line skeleton-line-md" />
+              <div className="skeleton-line skeleton-line-xs" />
+            </article>
+          ))}
         </div>
       ) : error ? (
         <div className="error-banner">{error}</div>

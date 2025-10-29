@@ -22,6 +22,7 @@ Content-Type: application/json
   "sku": "SKU-1000",
   "name": "Puma Hoodie",
   "description": "Warm fleece hoodie",
+  "imageUrl": "https://images.example.com/products/hoodie.png",
   "price": 2499.00,
   "specifications": { "material": "cotton", "size": "L" },
   "stockQuantity": 50,
@@ -29,7 +30,9 @@ Content-Type: application/json
 }
 ```
 
-Response: `201 Created` with the created product JSON (includes generated `id`).
+Response: `201 Created` with the created product JSON (includes generated `id`). When omitting
+`imageUrl` the API stores `null`, so clients should always pre-validate links to avoid blank
+thumbnails.
 
 ### List Products (Store users + approvers)
 
@@ -38,7 +41,8 @@ GET /api/v1/products
 Authorization: Bearer <token>
 ```
 
-Response: `200 OK` with an array of products. Use the `id` when creating order items.
+Response: `200 OK` with an array of products. Use the `id` when creating order items. Each object
+now includes `imageUrl` so the UI can render catalog thumbnails without an extra lookup.
 
 ## Order Lifecycle
 
@@ -58,7 +62,9 @@ Content-Type: application/json
 }
 ```
 
-Response: `201 Created` with an `OrderResponse` JSON. Initial `status` is `PENDING_APPROVAL` and `totalAmount` reflects the sum of item quantities \* product prices.
+Response: `201 Created` with an `OrderResponse` JSON. Initial `status` is `PENDING_APPROVAL` and
+`totalAmount` reflects the sum of item quantities \* product prices. Order items always include the
+product’s `imageUrl`, enabling client-side thumbnails even if the catalog is filtered locally.
 
 ### Approve Order (Approver)
 
@@ -95,6 +101,7 @@ Response: `201 Created` with the order now in `IN_TRANSIT` and nested `courierIn
 - Store tokens securely (browser storage or memory store) and refresh via login when requests return `401`.
 - Show role-specific UI based on JWT claims (roles are enforced server side to prevent misuse).
 - Use optimistic UI updates only after receiving `2xx` responses; errors return JSON `{ "message": "..." }` with appropriate HTTP status codes.
+- Resolve product thumbnails by first reading `items[].imageUrl`; fall back to the catalog lookup only when the API returns `null` (legacy data).
 
 ## Infrastructure Notes
 
