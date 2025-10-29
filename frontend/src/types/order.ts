@@ -8,6 +8,7 @@ export type OrderStatus =
 export type OrderItem = {
   productId: string;
   productName: string;
+  imageUrl?: string | null;
   quantity: number;
   unitPrice: number;
   lineTotal: number;

@@ -76,6 +76,7 @@ export type CreateProductPayload = {
   name: string;
   description: string;
   price: number;
+  imageUrl?: string | null;
   specifications: Record<string, string | number | boolean>;
   stockQuantity: number;
   active: boolean;
@@ -135,7 +136,10 @@ export const api = {
   ) {
     return request<Product>("/api/v1/products", {
       method: "POST",
-      body: payload,
+      body: {
+        ...payload,
+        imageUrl: payload.imageUrl ?? null,
+      },
       token,
       signal,
     });

@@ -4,6 +4,7 @@ export type Product = {
   name: string;
   description: string;
   price: number;
+  imageUrl?: string | null;
   specifications: Record<string, string | number | boolean | null>;
   stockQuantity: number;
   active: boolean;

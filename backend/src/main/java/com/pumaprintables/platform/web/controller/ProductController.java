@@ -52,6 +52,7 @@ public class ProductController {
             request.name(),
             request.description(),
             request.price(),
+            request.imageUrl(),
             request.specifications(),
             request.stockQuantity(),
             request.active()
@@ -69,6 +70,7 @@ public class ProductController {
             request.name(),
             request.description(),
             request.price(),
+            request.imageUrl(),
             request.specifications(),
             request.stockQuantity(),
             request.active()
@@ -90,6 +92,7 @@ public class ProductController {
             product.getName(),
             product.getDescription(),
             product.getPrice(),
+            product.getImageUrl(),
             product.getSpecifications(),
             product.getStockQuantity(),
             product.getActive(),

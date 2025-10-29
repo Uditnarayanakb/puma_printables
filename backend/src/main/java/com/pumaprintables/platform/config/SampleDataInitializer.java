@@ -106,16 +106,21 @@ public class SampleDataInitializer implements CommandLineRunner {
 
     private Product ensureProduct(String sku, String name, String description, BigDecimal price, int stock, ObjectNode specs, boolean active) {
         return productRepository.findBySku(sku)
-            .map(existing -> updateActiveFlag(existing, active))
+            .map(existing -> updateExisting(existing, active, sku))
             .orElseGet(() -> createProduct(sku, name, description, price, stock, specs, active));
     }
 
-    private Product updateActiveFlag(Product product, boolean active) {
+    private Product updateExisting(Product product, boolean active, String sku) {
+        boolean dirty = false;
         if (product.getActive() != active) {
             product.setActive(active);
-            return productRepository.save(product);
+            dirty = true;
         }
-        return product;
+        if (product.getImageUrl() == null || product.getImageUrl().isBlank()) {
+            product.setImageUrl(sampleImageForSku(sku));
+            dirty = true;
+        }
+        return dirty ? productRepository.save(product) : product;
     }
 
     private Product createProduct(String sku, String name, String description, BigDecimal price, int stock, ObjectNode specs, boolean active) {
@@ -124,6 +129,7 @@ public class SampleDataInitializer implements CommandLineRunner {
             .name(name)
             .description(description)
             .price(price)
+            .imageUrl(sampleImageForSku(sku))
             .specifications(specs)
             .stockQuantity(stock)
             .active(active)
@@ -181,7 +187,7 @@ public class SampleDataInitializer implements CommandLineRunner {
         seeds.put("CAT-TANK-019", new ProductSeed("Puma Training Tank", "Laser-cut ventilation panels keep you cool.", new BigDecimal("1399.00"), 58, true, Map.of("material", "Polyester", "color", "Mint", "fit", "Relaxed")));
         seeds.put("CAT-TEE-020", new ProductSeed("Puma Graphic Tee", "Limited edition artist collaboration tee.", new BigDecimal("1899.00"), 30, true, Map.of("material", "Cotton", "color", "Ink Blue", "collection", "City Pulse")));
         seeds.put("CAT-CREW-021", new ProductSeed("Puma Crew Sweatshirt", "Loopback crew with tonal branding.", new BigDecimal("2599.00"), 38, true, Map.of("material", "French Terry", "color", "Cloud", "fit", "Regular")));
-    seeds.put("CAT-PARKA-022", new ProductSeed("Puma Expedition Parka", "700-fill parka built for extreme cold.", new BigDecimal("14999.00"), 12, false, Map.of("material", "Down", "color", "Arctic", "rating", "-20C")));
+        seeds.put("CAT-PARKA-022", new ProductSeed("Puma Expedition Parka", "700-fill parka built for extreme cold.", new BigDecimal("14999.00"), 12, false, Map.of("material", "Down", "color", "Arctic", "rating", "-20C")));
         seeds.put("CAT-TEE-023", new ProductSeed("Puma Kids Tee", "Kids graphic tee with glow print.", new BigDecimal("899.00"), 75, true, Map.of("material", "Cotton", "color", "Neon Green", "age", "8-10")));
         seeds.put("CAT-HOODIE-024", new ProductSeed("Puma Zip Hoodie", "Double-knit zip hoodie for daily wear.", new BigDecimal("2999.00"), 46, true, Map.of("material", "Cotton Blend", "color", "Plum", "fit", "Regular")));
         seeds.put("CAT-BOTTOM-025", new ProductSeed("Puma Joggers", "Slim joggers with cargo pocket.", new BigDecimal("2399.00"), 54, true, Map.of("material", "French Terry", "color", "Olive", "fit", "Slim")));
@@ -201,5 +207,52 @@ public class SampleDataInitializer implements CommandLineRunner {
     }
 
     private record ProductSeed(String name, String description, BigDecimal price, int stock, boolean active, Map<String, String> specifications) {
+    }
+
+    private String sampleImageForSku(String sku) {
+        String base = "https://images.unsplash.com/";
+        if (sku.startsWith("CAT-HOODIE")) {
+            return base + "photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-TEE") || sku.startsWith("CAT-LS") || sku.startsWith("CAT-TANK")) {
+            return base + "photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-JACKET")) {
+            return base + "photo-1524578271613-d550eacf6090?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-TRACK")) {
+            return base + "photo-1542293787938-4d2226c75ff3?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-SHORT") || sku.startsWith("CAT-BOTTOM") || sku.startsWith("CAT-JOGG")) {
+            return base + "photo-1526413231329-37cdab2370cc?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-SHOE")) {
+            return base + "photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-BAG")) {
+            return base + "photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-BOTTLE")) {
+            return base + "photo-1514996937319-344454492b37?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-YOGA")) {
+            return base + "photo-1526401485004-46910ecc8e51?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-CAP")) {
+            return base + "photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-SOCK")) {
+            return base + "photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-BRA")) {
+            return base + "photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-GLOVE")) {
+            return base + "photo-1542293787938-4d2226c75ff3?auto=format&fit=crop&w=1200&q=80";
+        }
+        if (sku.startsWith("CAT-SCARF") || sku.startsWith("CAT-HAT")) {
+            return base + "photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80";
+        }
+        return base + "photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=80";
     }
 }

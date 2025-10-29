@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-add-product-image-url
+      author: github-copilot
+      changes:
+        - addColumn:
+            tableName: products
+            columns:
+              - column:
+                  name: image_url
+                  type: VARCHAR(512)

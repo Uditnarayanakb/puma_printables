@@ -14,6 +14,7 @@ public record ProductResponse(
     String name,
     String description,
     BigDecimal price,
+    String imageUrl,
     JsonNode specifications,
     Integer stockQuantity,
     Boolean active,

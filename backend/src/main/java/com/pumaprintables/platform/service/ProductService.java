@@ -33,7 +33,7 @@ public class ProductService {
 
     @Transactional
     public Product createProduct(String sku, String name, String description, java.math.BigDecimal price,
-                                 JsonNode specifications, Integer stockQuantity, Boolean active) {
+                                 String imageUrl, JsonNode specifications, Integer stockQuantity, Boolean active) {
         productRepository.findBySku(sku)
             .ifPresent(existing -> {
                 throw new SkuAlreadyExistsException(sku);
@@ -44,6 +44,7 @@ public class ProductService {
             .name(name)
             .description(description)
             .price(price)
+            .imageUrl(imageUrl)
             .specifications(specifications)
             .stockQuantity(stockQuantity)
             .active(active != null ? active : Boolean.TRUE)
@@ -54,7 +55,7 @@ public class ProductService {
 
     @Transactional
     public Product updateProduct(UUID id, String sku, String name, String description, java.math.BigDecimal price,
-                                 JsonNode specifications, Integer stockQuantity, Boolean active) {
+                                 String imageUrl, JsonNode specifications, Integer stockQuantity, Boolean active) {
         Product existing = getProduct(id);
 
         if (!existing.getSku().equalsIgnoreCase(sku)) {
@@ -70,6 +71,7 @@ public class ProductService {
         existing.setName(name);
         existing.setDescription(description);
         existing.setPrice(price);
+    existing.setImageUrl(imageUrl);
         existing.setSpecifications(specifications);
         existing.setStockQuantity(stockQuantity);
         existing.setActive(active != null ? active : existing.getActive());

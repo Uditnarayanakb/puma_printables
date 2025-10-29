@@ -28,6 +28,7 @@ type CreateProductForm = {
   name: string;
   description: string;
   price: string;
+  imageUrl: string;
   stockQuantity: string;
   active: boolean;
   specifications: SpecificationField[];
@@ -67,6 +68,7 @@ const buildInitialFormState = (): CreateProductForm => ({
   name: "",
   description: "",
   price: "",
+  imageUrl: "",
   stockQuantity: "",
   active: true,
   specifications: [createSpecField(), createSpecField()],
@@ -223,6 +225,7 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
     const description = createForm.description.trim();
     const priceValue = Number(createForm.price);
     const stockValue = Number.parseInt(createForm.stockQuantity, 10);
+    const imageUrl = createForm.imageUrl.trim();
 
     if (!sku || !name || !description) {
       setCreateError("Please complete SKU, name, and description.");
@@ -268,6 +271,7 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
       name,
       description,
       price: priceValue,
+      imageUrl: imageUrl ? imageUrl : undefined,
       stockQuantity: stockValue,
       specifications,
       active: createForm.active,
@@ -471,6 +475,17 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
                 />
               </label>
 
+              <label className="form-field" htmlFor="create-image">
+                <span className="meta-label">Image URL</span>
+                <input
+                  id="create-image"
+                  type="url"
+                  placeholder="https://..."
+                  value={createForm.imageUrl}
+                  onChange={handleFieldChange("imageUrl")}
+                />
+              </label>
+
               <label className="form-field" htmlFor="create-stock">
                 <span className="meta-label">Stock on hand</span>
                 <input
@@ -586,64 +601,88 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
       ) : (
         <div className="products-grid">
           {filteredProducts.map((product, index) => {
-            const specEntries = Object.entries(
-              product.specifications ?? {}
-            );
+            const specEntries = Object.entries(product.specifications ?? {});
+            const visibleSpecs = specEntries.slice(0, 4);
+            const remainingSpecCount = specEntries.length - visibleSpecs.length;
+            const fallbackInitial =
+              product.name.trim().charAt(0) ||
+              product.sku.trim().charAt(0) ||
+              "P";
             return (
               <article
                 key={product.id}
                 className="product-card"
                 style={{ "--card-index": String(index) } as CSSProperties}
               >
-                <header className="product-header">
-                  <div>
-                    <div className="meta-label">SKU</div>
-                    <strong>{product.sku}</strong>
-                    <div className="product-name">{product.name}</div>
-                  </div>
+                <div className="product-media">
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="product-media-fallback" aria-hidden="true">
+                      <span>{fallbackInitial}</span>
+                    </div>
+                  )}
                   <span
-                    className={`product-status ${
-                      product.active ? "active" : "inactive"
+                    className={`product-status-badge ${
+                      product.active ? "is-active" : "is-inactive"
                     }`}
                   >
                     {product.active ? "Active" : "Inactive"}
                   </span>
-                </header>
+                </div>
 
-                <p className="product-description">{product.description}</p>
+                <div className="product-body">
+                  <div className="product-heading">
+                    <div>
+                      <h3 className="product-title">{product.name}</h3>
+                      <p className="product-sku">{product.sku}</p>
+                    </div>
+                    <div className="product-price">
+                      {currencyFormatter.format(product.price)}
+                    </div>
+                  </div>
 
-                <dl className="product-facts">
-                  <div>
-                    <dt>Price</dt>
-                    <dd>{currencyFormatter.format(product.price)}</dd>
-                  </div>
-                  <div>
-                    <dt>In stock</dt>
-                    <dd>{product.stockQuantity}</dd>
-                  </div>
-                  <div>
-                    <dt>Created</dt>
-                    <dd>{dateFormatter.format(new Date(product.createdAt))}</dd>
-                  </div>
-                </dl>
+                  <p className="product-description">{product.description}</p>
 
-                {specEntries.length > 0 ? (
-                  <div className="product-specs">
-                    <h4>Specifications</h4>
-                    <ul>
-                      {specEntries.map(([key, value]) => (
-                        <li key={key}>
-                          <span className="meta-label">{key}</span>
-                          <span>{String(value)}</span>
-                        </li>
+                  {specEntries.length > 0 ? (
+                    <div className="product-spec-chip-row">
+                      {visibleSpecs.map(([key, value]) => (
+                        <span key={key} className="product-spec-chip">
+                          <span className="spec-chip-key">{key}</span>
+                          <span className="spec-chip-value">
+                            {String(value)}
+                          </span>
+                        </span>
                       ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <span className="small-muted">
-                    No specifications captured.
-                  </span>
-                )}
+                      {remainingSpecCount > 0 ? (
+                        <span className="product-spec-more">
+                          +{remainingSpecCount} more
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="product-spec-empty small-muted">
+                      Specs pending curation
+                    </span>
+                  )}
+
+                  <footer className="product-footer">
+                    <div>
+                      <div className="meta-label">Stock</div>
+                      <strong>{product.stockQuantity}</strong>
+                    </div>
+                    <div>
+                      <div className="meta-label">Created</div>
+                      <span>
+                        {dateFormatter.format(new Date(product.createdAt))}
+                      </span>
+                    </div>
+                  </footer>
+                </div>
               </article>
             );
           })}

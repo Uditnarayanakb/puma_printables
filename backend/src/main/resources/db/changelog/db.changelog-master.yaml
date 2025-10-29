@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/db.changelog-001-initial-schema.yaml
   - include:
       file: db/changelog/db.changelog-002-notification-log.yaml
+  - include:
+      file: db/changelog/db.changelog-003-product-images.yaml

@@ -204,6 +204,7 @@ public class OrderService {
         order.getItems().forEach(item -> {
             item.getProduct().getName();
             item.getProduct().getPrice();
+            item.getProduct().getImageUrl();
         });
         if (order.getApproval() != null) {
             order.getApproval().getStatus();

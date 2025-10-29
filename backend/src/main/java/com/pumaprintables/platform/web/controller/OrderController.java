@@ -122,6 +122,7 @@ public class OrderController {
                 return new OrderItemResponse(
                     item.getProduct().getId(),
                     item.getProduct().getName(),
+                    item.getProduct().getImageUrl(),
                     item.getQuantity(),
                     item.getUnitPrice(),
                     lineTotal

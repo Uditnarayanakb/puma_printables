@@ -13,6 +13,7 @@ public record ProductRequest(
     @NotBlank(message = "Name is required") String name,
     @NotBlank(message = "Description is required") String description,
     @NotNull(message = "Price is required") @DecimalMin(value = "0.0", inclusive = false, message = "Price must be positive") BigDecimal price,
+    String imageUrl,
     @NotNull(message = "Specifications are required") JsonNode specifications,
     @NotNull(message = "Stock quantity is required") @PositiveOrZero(message = "Stock cannot be negative") Integer stockQuantity,
     Boolean active

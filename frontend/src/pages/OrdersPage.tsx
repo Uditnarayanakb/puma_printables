@@ -110,6 +110,9 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
+  const [productImageLookup, setProductImageLookup] = useState<
+    Record<string, string | null>
+  >({});
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState(emptyCreateForm);
@@ -176,6 +179,26 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
 
     return () => controller.abort();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    api
+      .getProducts(token, controller.signal)
+      .then((data) => {
+        setProductImageLookup(
+          data.reduce<Record<string, string | null>>((acc, product) => {
+            acc[product.id] = product.imageUrl ?? null;
+            return acc;
+          }, {})
+        );
+      })
+      .catch(() => {
+        // Non-blocking optional fetch; fallback visuals will cover missing images.
+      });
+
+    return () => controller.abort();
+  }, [token]);
 
   useEffect(() => {
     if (!successMessage) {
@@ -515,8 +538,8 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
 
       {!isLoading && !error && orders.length > 0 ? (
         <p className="view-meta small-muted">
-          Showing {orders.length} {orders.length === 1 ? "order" : "orders"} in this
-          view.
+          Showing {orders.length} {orders.length === 1 ? "order" : "orders"} in
+          this view.
         </p>
       ) : null}
 
@@ -574,26 +597,51 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                 </div>
               </div>
 
-              <table className="items-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Item</th>
-                    <th scope="col">Qty</th>
-                    <th scope="col">Unit price</th>
-                    <th scope="col">Line total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.items.map((item) => (
-                    <tr key={`${order.id}-${item.productId}`}>
-                      <td>{item.productName}</td>
-                      <td>{item.quantity}</td>
-                      <td>{currencyFormatter.format(item.unitPrice)}</td>
-                      <td>{currencyFormatter.format(item.lineTotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="order-items-deck" aria-label="Line items">
+                {order.items.map((item) => {
+                  const resolvedImage =
+                    item.imageUrl ?? productImageLookup[item.productId] ?? null;
+                  const fallbackInitial =
+                    item.productName.trim().charAt(0) || "P";
+                  return (
+                    <div
+                      key={`${order.id}-${item.productId}`}
+                      className="order-item-chip"
+                    >
+                      <div className="order-item-thumb">
+                        {resolvedImage ? (
+                          <img
+                            src={resolvedImage}
+                            alt={item.productName}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span aria-hidden="true">{fallbackInitial}</span>
+                        )}
+                      </div>
+
+                      <div className="order-item-body">
+                        <div className="order-item-top">
+                          <span className="order-item-name">
+                            {item.productName}
+                          </span>
+                          <span className="order-item-quantity">
+                            ×{item.quantity}
+                          </span>
+                        </div>
+                        <div className="order-item-bottom">
+                          <span>
+                            {currencyFormatter.format(item.unitPrice)} each
+                          </span>
+                          <span className="order-item-total">
+                            {currencyFormatter.format(item.lineTotal)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
               {canManageApprovals ? (
                 <div className="order-actions">
