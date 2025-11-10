@@ -3,6 +3,7 @@ package com.pumaprintables.platform.web.controller;
 import com.pumaprintables.platform.domain.model.Order;
 import com.pumaprintables.platform.domain.model.enums.OrderStatus;
 import com.pumaprintables.platform.service.OrderService;
+import com.pumaprintables.platform.web.dto.AcceptOrderRequest;
 import com.pumaprintables.platform.web.dto.ApprovalActionRequest;
 import com.pumaprintables.platform.web.dto.CourierInfoRequest;
 import com.pumaprintables.platform.web.dto.CourierInfoResponse;
@@ -94,6 +95,15 @@ public class OrderController {
         return ResponseEntity.ok(toResponse(order));
     }
 
+    @PreAuthorize("hasAnyRole('FULFILLMENT_AGENT','ADMIN')")
+    @PostMapping("/{orderId}/accept")
+    public ResponseEntity<OrderResponse> acceptOrder(Authentication authentication,
+                                                      @PathVariable UUID orderId,
+                                                      @Valid @RequestBody AcceptOrderRequest request) {
+        Order order = orderService.acceptOrder(orderId, authentication.getName(), request.deliveryAddress());
+        return ResponseEntity.ok(toResponse(order));
+    }
+
     @PreAuthorize("hasAnyRole('APPROVER','ADMIN')")
     @PostMapping("/{orderId}/reject")
     public ResponseEntity<OrderResponse> rejectOrder(Authentication authentication,
@@ -103,7 +113,7 @@ public class OrderController {
         return ResponseEntity.ok(toResponse(order));
     }
 
-    @PreAuthorize("hasAnyRole('APPROVER','ADMIN')")
+    @PreAuthorize("hasAnyRole('APPROVER','FULFILLMENT_AGENT','ADMIN')")
     @PostMapping("/{orderId}/courier")
     public ResponseEntity<OrderResponse> addCourierInfo(@PathVariable UUID orderId,
                                                         @Valid @RequestBody CourierInfoRequest request) {
@@ -147,6 +157,7 @@ public class OrderController {
             order.getId(),
             order.getStatus(),
             order.getShippingAddress(),
+            order.getDeliveryAddress(),
             order.getCustomerGst(),
             items,
             total,

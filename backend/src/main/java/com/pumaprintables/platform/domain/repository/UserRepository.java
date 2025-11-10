@@ -21,4 +21,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findByRole(UserRole role);
 
     List<User> findByFirstLoginAtGreaterThanEqual(OffsetDateTime firstLoginAt);
+
+    long countByRole(UserRole role);
+
+    long countByLastLoginAtGreaterThanEqual(OffsetDateTime lastLoginAt);
 }

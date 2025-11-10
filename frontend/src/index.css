@@ -67,8 +67,8 @@ body::after {
 }
 
 ::selection {
-  background: rgba(52, 199, 89, 0.35);
-  color: #0b0d12;
+  background: rgba(96, 165, 250, 0.38);
+  color: #061225;
 }
 
 #root {

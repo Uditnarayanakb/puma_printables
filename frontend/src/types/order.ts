@@ -1,6 +1,7 @@
 export type OrderStatus =
   | "PENDING_APPROVAL"
   | "APPROVED"
+  | "ACCEPTED"
   | "REJECTED"
   | "IN_TRANSIT"
   | "FULFILLED";
@@ -24,6 +25,7 @@ export type Order = {
   id: string;
   status: OrderStatus;
   shippingAddress: string;
+  deliveryAddress: string | null;
   customerGst: string | null;
   items: OrderItem[];
   totalAmount: number;
@@ -33,11 +35,15 @@ export type Order = {
 
 export type OrdersResponse = Order[];
 
-type Role = "ADMIN" | "APPROVER" | "STORE_USER";
+export type UserRole =
+  | "ADMIN"
+  | "APPROVER"
+  | "STORE_USER"
+  | "FULFILLMENT_AGENT";
 
 export type JwtPayload = {
   sub: string;
-  role: Role;
+  role: UserRole;
   exp: number;
   name?: string;
   avatar?: string;

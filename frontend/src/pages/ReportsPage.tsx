@@ -24,6 +24,7 @@ type TopItem = {
 const STATUS_LABELS: Record<Order["status"], string> = {
   PENDING_APPROVAL: "Pending approval",
   APPROVED: "Approved",
+  ACCEPTED: "Accepted",
   REJECTED: "Rejected",
   IN_TRANSIT: "In transit",
   FULFILLED: "Fulfilled",
@@ -238,6 +239,7 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
               [
                 "PENDING_APPROVAL",
                 "APPROVED",
+                "ACCEPTED",
                 "REJECTED",
                 "IN_TRANSIT",
                 "FULFILLED",

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 import "../App.css";
+import { useCart } from "../hooks/useCart";
 
 export type AppLayoutProps = {
   title: string;
@@ -11,7 +12,7 @@ export type AppLayoutProps = {
   children: ReactNode;
 };
 
-type KnownRole = "ADMIN" | "APPROVER" | "STORE_USER";
+type KnownRole = "ADMIN" | "APPROVER" | "STORE_USER" | "FULFILLMENT_AGENT";
 
 type NavItem = {
   to: string;
@@ -25,13 +26,13 @@ const NAV_ITEMS: NavItem[] = [
     to: "/orders",
     label: "Orders",
     icon: "📦",
-    allowedRoles: ["ADMIN", "APPROVER", "STORE_USER"],
+    allowedRoles: ["ADMIN", "APPROVER", "STORE_USER", "FULFILLMENT_AGENT"],
   },
   {
     to: "/products",
     label: "Products",
     icon: "🛍️",
-    allowedRoles: ["ADMIN", "STORE_USER"],
+    allowedRoles: ["ADMIN", "STORE_USER", "FULFILLMENT_AGENT"],
   },
   {
     to: "/reports",
@@ -45,10 +46,19 @@ const NAV_ITEMS: NavItem[] = [
     icon: "✉️",
     allowedRoles: ["ADMIN", "APPROVER"],
   },
+  {
+    to: "/admin/users",
+    label: "Manage users",
+    icon: "👥",
+    allowedRoles: ["ADMIN"],
+  },
 ];
 
 function normalizeRole(role: string): KnownRole {
   if (role === "ADMIN" || role === "APPROVER" || role === "STORE_USER") {
+    return role;
+  }
+  if (role === "FULFILLMENT_AGENT") {
     return role;
   }
   return "STORE_USER";
@@ -61,10 +71,16 @@ export function AppLayout({
   onLogout,
   children,
 }: AppLayoutProps) {
+  const { totalQuantity, openCart } = useCart();
   const normalizedRole = normalizeRole(role);
   const navItemsForRole = NAV_ITEMS.filter((item) =>
     item.allowedRoles.includes(normalizedRole)
   );
+  const canUseCart =
+    normalizedRole === "STORE_USER" || normalizedRole === "ADMIN";
+  const cartLabel = totalQuantity
+    ? `Open cart (${totalQuantity} item${totalQuantity === 1 ? "" : "s"})`
+    : "Open cart";
 
   return (
     <div className="app-layout">
@@ -76,6 +92,21 @@ export function AppLayout({
           </p>
         </div>
         <div className="header-actions">
+          {canUseCart ? (
+            <button
+              type="button"
+              className="header-cart-button"
+              onClick={openCart}
+              aria-label={cartLabel}
+            >
+              <span className="header-cart-icon" aria-hidden="true">
+                🛒
+              </span>
+              {totalQuantity > 0 ? (
+                <span className="header-cart-badge">{totalQuantity}</span>
+              ) : null}
+            </button>
+          ) : null}
           <span className="badge">{role}</span>
           <span>{username}</span>
           <button

@@ -18,6 +18,7 @@ import com.pumaprintables.platform.service.exception.OrderNotFoundException;
 import com.pumaprintables.platform.service.exception.ProductNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -57,6 +58,7 @@ public class OrderService {
         Order order = Order.builder()
             .user(user)
             .shippingAddress(shippingAddress)
+            .deliveryAddress(shippingAddress)
             .customerGst(customerGst)
             .status(OrderStatus.PENDING_APPROVAL)
             .build();
@@ -164,11 +166,37 @@ public class OrderService {
     }
 
     @Transactional
+    public Order acceptOrder(UUID orderId, String agentUsername, String deliveryAddress) {
+        Order order = getOrder(orderId);
+
+        if (order.getStatus() != OrderStatus.APPROVED) {
+            throw new InvalidOrderStateException("Only approved orders can be accepted");
+        }
+
+        getUserByUsername(agentUsername);
+
+        String normalizedAddress = StringUtils.hasText(deliveryAddress)
+            ? deliveryAddress.trim()
+            : order.getDeliveryAddress();
+        if (!StringUtils.hasText(normalizedAddress)) {
+            normalizedAddress = order.getShippingAddress();
+        }
+
+        order.setStatus(OrderStatus.ACCEPTED);
+        order.setDeliveryAddress(normalizedAddress);
+
+        Order saved = orderRepository.save(order);
+        hydrateOrder(saved);
+        notificationService.notifyOrderAccepted(saved);
+        return saved;
+    }
+
+    @Transactional
     public Order addCourierInfo(UUID orderId, String courierName, String trackingNumber, OffsetDateTime dispatchDate) {
         Order order = getOrder(orderId);
 
-        if (order.getStatus() != OrderStatus.APPROVED && order.getStatus() != OrderStatus.IN_TRANSIT) {
-            throw new InvalidOrderStateException("Courier details can only be added to approved orders");
+        if (order.getStatus() != OrderStatus.APPROVED && order.getStatus() != OrderStatus.ACCEPTED && order.getStatus() != OrderStatus.IN_TRANSIT) {
+            throw new InvalidOrderStateException("Courier details can only be added to approved or accepted orders");
         }
 
         CourierInfo courierInfo = order.getCourierInfo();
@@ -185,7 +213,7 @@ public class OrderService {
         order.setCourierInfo(courierInfo);
         courierInfoRepository.save(courierInfo);
 
-        if (order.getStatus() == OrderStatus.APPROVED) {
+        if (order.getStatus() == OrderStatus.APPROVED || order.getStatus() == OrderStatus.ACCEPTED) {
             order.setStatus(OrderStatus.IN_TRANSIT);
         }
 

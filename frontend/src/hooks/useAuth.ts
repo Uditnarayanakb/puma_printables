@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import type { JwtPayload } from "../types/order";
+import { api } from "../services/api";
 
 const STORAGE_KEY = "puma.printables.auth";
 
 type AuthUser = {
   username: string;
   role: JwtPayload["role"];
+  id?: string;
   displayName?: string;
+  email?: string | null;
   avatarUrl?: string;
   provider?: "LOCAL" | "GOOGLE";
 };
@@ -115,6 +118,94 @@ export function useAuth() {
     return { token: state.token, user: state.user };
   }, [state.token, state.user, state.expiresAt]);
 
+  const fetchSession = useCallback(
+    async (signal?: AbortSignal) => {
+      const token = state.token;
+      if (!token) {
+        return;
+      }
+
+      try {
+        const session = await api.getSession(token, signal);
+        setState((current) => {
+          if (!current.token || current.token !== token) {
+            return current;
+          }
+
+          const nextUser: AuthUser = {
+            username: session.username,
+            role: session.role,
+            id: session.id,
+            email: session.email,
+            provider: session.authProvider,
+          };
+
+          const fallbackDisplayName = current.user?.displayName;
+          const fallbackAvatar = current.user?.avatarUrl;
+
+          nextUser.displayName = session.fullName ?? fallbackDisplayName;
+          nextUser.avatarUrl = session.avatarUrl ?? fallbackAvatar;
+
+          return {
+            token: current.token,
+            user: nextUser,
+            expiresAt: current.expiresAt,
+          };
+        });
+      } catch (error) {
+        if (signal?.aborted) {
+          return;
+        }
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        if (error instanceof Error && error.message.includes("401")) {
+          logout();
+          return;
+        }
+        console.warn("Unable to refresh session", error);
+      }
+    },
+    [state.token, logout]
+  );
+
+  const refreshSession = useCallback(async () => {
+    await fetchSession();
+  }, [fetchSession]);
+
+  useEffect(() => {
+    if (!state.token) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    fetchSession(controller.signal);
+    return () => controller.abort();
+  }, [state.token, fetchSession]);
+
+  useEffect(() => {
+    if (!state.token) {
+      return undefined;
+    }
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return undefined;
+    }
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        void refreshSession();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibility);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [state.token, refreshSession]);
+
   useEffect(() => {
     if (!state.token || !state.user || state.expiresAt === null) {
       return undefined;
@@ -138,7 +229,16 @@ export function useAuth() {
       login,
       logout,
       requireAuth: guard,
+      refreshSession,
     }),
-    [state.token, state.user, isAuthenticated, login, logout, guard]
+    [
+      state.token,
+      state.user,
+      isAuthenticated,
+      login,
+      logout,
+      guard,
+      refreshSession,
+    ]
   );
 }

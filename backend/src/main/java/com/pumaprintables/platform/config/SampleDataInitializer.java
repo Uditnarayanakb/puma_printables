@@ -38,6 +38,10 @@ public class SampleDataInitializer implements CommandLineRunner {
     private static final String APPROVER_PASSWORD = "Approve@123";
     private static final String APPROVER_EMAIL = "flow-approver@example.com";
 
+    private static final String FULFILLMENT_USERNAME = "flow-fulfillment";
+    private static final String FULFILLMENT_PASSWORD = "Fulfill@123";
+    private static final String FULFILLMENT_EMAIL = "flow-fulfillment@example.com";
+
     private static final String HOODIE_SKU = "CAT-HOODIE-001";
     private static final String TSHIRT_SKU = "CAT-TEE-002";
 
@@ -70,6 +74,9 @@ public class SampleDataInitializer implements CommandLineRunner {
 
         User approverUser = userRepository.findByUsername(APPROVER_USERNAME)
             .orElseGet(() -> createUser(APPROVER_USERNAME, APPROVER_PASSWORD, APPROVER_EMAIL, UserRole.APPROVER));
+
+        userRepository.findByUsername(FULFILLMENT_USERNAME)
+            .orElseGet(() -> createUser(FULFILLMENT_USERNAME, FULFILLMENT_PASSWORD, FULFILLMENT_EMAIL, UserRole.FULFILLMENT_AGENT));
 
         Product hoodie = ensureProduct(HOODIE_SKU,
             "Puma Heritage Hoodie",

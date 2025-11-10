@@ -13,6 +13,7 @@ public record OrderResponse(
     UUID id,
     OrderStatus status,
     String shippingAddress,
+    String deliveryAddress,
     String customerGst,
     List<OrderItemResponse> items,
     BigDecimal totalAmount,

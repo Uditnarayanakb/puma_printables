@@ -1,13 +1,20 @@
 import type { Order } from "../types/order";
 import type { Product } from "../types/product";
 import type { NotificationEntry } from "../types/notification";
+import type {
+  CurrentUser,
+  ManagedUser,
+  UserAccount,
+  UserMetrics,
+} from "../types/user";
+import type { UserRole } from "../types/order";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
 const AUTH_HEADER = "Authorization";
 
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 type RequestOptions = {
   method?: HttpMethod;
@@ -78,6 +85,14 @@ export type GoogleLoginRequest = {
   credential: string;
 };
 
+export type RegisterPayload = {
+  username: string;
+  password: string;
+  email: string;
+  fullName?: string | null;
+  role?: UserRole;
+};
+
 export type CreateProductPayload = {
   sku: string;
   name: string;
@@ -108,6 +123,14 @@ export type CourierInfoPayload = {
   dispatchDate: string;
 };
 
+export type AcceptOrderPayload = {
+  deliveryAddress: string;
+};
+
+export type UpdateUserRolePayload = {
+  role: string;
+};
+
 export const api = {
   login(input: LoginRequest, signal?: AbortSignal) {
     return request<LoginResponse>("/api/v1/auth/login", {
@@ -121,6 +144,18 @@ export const api = {
     return request<LoginResponse>("/api/v1/auth/login/google", {
       method: "POST",
       body: input,
+      signal,
+    });
+  },
+
+  register(payload: RegisterPayload, token?: string, signal?: AbortSignal) {
+    return request<UserAccount>("/api/v1/auth/register", {
+      method: "POST",
+      body: {
+        ...payload,
+        fullName: payload.fullName ?? null,
+      },
+      token,
       signal,
     });
   },
@@ -221,6 +256,59 @@ export const api = {
     return request<Order>(`/api/v1/orders/${orderId}/courier`, {
       method: "POST",
       body: payload,
+      token,
+      signal,
+    });
+  },
+
+  acceptOrder(
+    token: string,
+    orderId: string,
+    payload: AcceptOrderPayload,
+    signal?: AbortSignal
+  ) {
+    return request<Order>(`/api/v1/orders/${orderId}/accept`, {
+      method: "POST",
+      body: payload,
+      token,
+      signal,
+    });
+  },
+
+  getUserMetrics(token: string, days = 30, signal?: AbortSignal) {
+    const params = new URLSearchParams({ days: String(days) });
+    return request<UserMetrics>(
+      `/api/v1/admin/users/metrics?${params.toString()}`,
+      {
+        token,
+        signal,
+      }
+    );
+  },
+
+  getManagedUsers(token: string, signal?: AbortSignal) {
+    return request<ManagedUser[]>("/api/v1/admin/users", {
+      token,
+      signal,
+    });
+  },
+
+  updateUserRole(
+    token: string,
+    userId: string,
+    payload: UpdateUserRolePayload,
+    signal?: AbortSignal
+  ) {
+    return request<ManagedUser>(`/api/v1/admin/users/${userId}/role`, {
+      method: "PATCH",
+      body: payload,
+      token,
+      signal,
+    });
+  },
+
+  getSession(token: string, signal?: AbortSignal) {
+    return request<CurrentUser>("/api/v1/auth/session", {
       token,
       signal,
     });

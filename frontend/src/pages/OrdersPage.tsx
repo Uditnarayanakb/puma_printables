@@ -8,6 +8,7 @@ import type { Product } from "../types/product";
 const statusLabels: Record<OrderStatus, string> = {
   PENDING_APPROVAL: "Pending approval",
   APPROVED: "Approved",
+  ACCEPTED: "Accepted",
   REJECTED: "Rejected",
   IN_TRANSIT: "In transit",
   FULFILLED: "Fulfilled",
@@ -16,6 +17,7 @@ const statusLabels: Record<OrderStatus, string> = {
 const statusClassNames: Record<OrderStatus, string> = {
   PENDING_APPROVAL: "status-pill pending",
   APPROVED: "status-pill approved",
+  ACCEPTED: "status-pill accepted",
   REJECTED: "status-pill rejected",
   IN_TRANSIT: "status-pill transit",
   FULFILLED: "status-pill fulfilled",
@@ -71,6 +73,11 @@ type ActionModalState =
       courierName: string;
       trackingNumber: string;
       dispatchDate: string;
+    }
+  | {
+      type: "accept";
+      order: Order;
+      deliveryAddress: string;
     };
 
 type CourierField = "courierName" | "trackingNumber" | "dispatchDate";
@@ -79,6 +86,7 @@ const FILTER_OPTIONS: Array<{ label: string; value: FilterValue }> = [
   { label: "All statuses", value: "ALL" },
   { label: statusLabels.PENDING_APPROVAL, value: "PENDING_APPROVAL" },
   { label: statusLabels.APPROVED, value: "APPROVED" },
+  { label: statusLabels.ACCEPTED, value: "ACCEPTED" },
   { label: statusLabels.REJECTED, value: "REJECTED" },
   { label: statusLabels.IN_TRANSIT, value: "IN_TRANSIT" },
   { label: statusLabels.FULFILLED, value: "FULFILLED" },
@@ -100,8 +108,10 @@ const toDateTimeLocal = (date: Date) => {
 };
 
 export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
-  const canCreateOrders = user.role === "STORE_USER" || user.role === "ADMIN";
+  const canCreateOrders = user.role === "ADMIN";
   const canManageApprovals = user.role === "APPROVER" || user.role === "ADMIN";
+  const canManageFulfillment =
+    user.role === "FULFILLMENT_AGENT" || user.role === "ADMIN";
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<FilterValue>("ALL");
@@ -263,9 +273,12 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
     return filter === "ALL" ? "All orders" : `${statusLabels[filter]} orders`;
   }, [filter]);
 
-  const heroCopy = canCreateOrders
-    ? "Create requests, track fulfilment, and dispatch faster."
-    : "Stay ahead of approvals and watch fulfilment at a glance.";
+  const heroCopy =
+    user.role === "STORE_USER"
+      ? "Add items to your cart from the catalog and place orders in one go."
+      : canCreateOrders
+      ? "Create requests, track fulfilment, and dispatch faster."
+      : "Stay ahead of approvals and watch fulfilment at a glance.";
 
   const handleCreateFieldChange =
     (field: "shippingAddress" | "customerGst") =>
@@ -383,6 +396,15 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
     setActionModal({ type: "reject", order, comments: "" });
   };
 
+  const openAcceptModal = (order: Order) => {
+    setActionError(null);
+    setActionModal({
+      type: "accept",
+      order,
+      deliveryAddress: order.deliveryAddress ?? order.shippingAddress,
+    });
+  };
+
   const openCourierModal = (order: Order) => {
     const defaultDate = order.courierInfo?.dispatchDate
       ? toDateTimeLocal(new Date(order.courierInfo.dispatchDate))
@@ -435,6 +457,18 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
           });
           setSuccessMessage("Order rejected");
         }
+      } else if (actionModal.type === "accept") {
+        const address = actionModal.deliveryAddress.trim();
+        if (!address) {
+          setActionError("Delivery address is required");
+          setActionSubmitting(false);
+          return;
+        }
+
+        await api.acceptOrder(token, actionModal.order.id, {
+          deliveryAddress: address,
+        });
+        setSuccessMessage("Order accepted for fulfilment");
       } else if (actionModal.type === "courier") {
         const courierName = actionModal.courierName.trim();
         const trackingNumber = actionModal.trackingNumber.trim();
@@ -468,7 +502,10 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
   };
 
   const handleActionFieldChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    if (!actionModal || actionModal.type === "courier") {
+    if (
+      !actionModal ||
+      (actionModal.type !== "approve" && actionModal.type !== "reject")
+    ) {
       return;
     }
     setActionModal({ ...actionModal, comments: event.target.value });
@@ -486,6 +523,16 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
         [field]: event.target.value,
       });
     };
+
+  const handleAcceptAddressChange = (
+    event: ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    if (!actionModal || actionModal.type !== "accept") {
+      return;
+    }
+
+    setActionModal({ ...actionModal, deliveryAddress: event.target.value });
+  };
 
   const handleGenerateTrackingNumber = () => {
     if (!actionModal || actionModal.type !== "courier") {
@@ -596,6 +643,8 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
           <p className="small-muted">
             {canCreateOrders
               ? "Use the New order button to raise a request."
+              : user.role === "STORE_USER"
+              ? "No orders yet. Use the cart from the catalog to submit your first request."
               : "Try switching filters or ask the store team to raise an order."}
           </p>
         </div>
@@ -630,6 +679,13 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                   <span className="meta-label">Ship to</span>
                   <span>{order.shippingAddress}</span>
                 </div>
+                {order.deliveryAddress &&
+                order.deliveryAddress !== order.shippingAddress ? (
+                  <div className="meta-block">
+                    <span className="meta-label">Delivery address</span>
+                    <span>{order.deliveryAddress}</span>
+                  </div>
+                ) : null}
               </div>
 
               <div className="order-items-deck" aria-label="Line items">
@@ -678,9 +734,9 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                 })}
               </div>
 
-              {canManageApprovals ? (
+              {canManageApprovals || canManageFulfillment ? (
                 <div className="order-actions">
-                  {order.status === "PENDING_APPROVAL" ? (
+                  {canManageApprovals && order.status === "PENDING_APPROVAL" ? (
                     <>
                       <button
                         type="button"
@@ -699,15 +755,43 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                     </>
                   ) : null}
 
-                  {order.status === "APPROVED" && !order.courierInfo ? (
+                  {canManageFulfillment && order.status === "APPROVED" ? (
                     <button
                       type="button"
-                      className="secondary-button action-button"
-                      onClick={() => openCourierModal(order)}
+                      className="primary-button action-button"
+                      onClick={() => openAcceptModal(order)}
                     >
-                      Add courier
+                      Accept for fulfilment
                     </button>
                   ) : null}
+
+                  {(() => {
+                    const courierEligible =
+                      (canManageApprovals &&
+                        order.status === "APPROVED" &&
+                        !order.courierInfo) ||
+                      (canManageFulfillment &&
+                        (order.status === "ACCEPTED" ||
+                          order.status === "IN_TRANSIT"));
+
+                    if (!courierEligible) {
+                      return null;
+                    }
+
+                    const label = order.courierInfo
+                      ? "Update courier"
+                      : "Add courier";
+
+                    return (
+                      <button
+                        type="button"
+                        className="secondary-button action-button"
+                        onClick={() => openCourierModal(order)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })()}
                 </div>
               ) : null}
 
@@ -915,6 +999,8 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                     ? "Approve order"
                     : actionModal.type === "reject"
                     ? "Reject order"
+                    : actionModal.type === "accept"
+                    ? "Accept order"
                     : actionModal.order.courierInfo
                     ? "Update courier details"
                     : "Add courier details"}
@@ -947,6 +1033,19 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                     rows={3}
                     value={actionModal.comments}
                     onChange={handleActionFieldChange}
+                  />
+                </label>
+              ) : null}
+
+              {actionModal.type === "accept" ? (
+                <label className="form-field" htmlFor="accept-address">
+                  <span className="meta-label">Delivery address</span>
+                  <textarea
+                    id="accept-address"
+                    required
+                    rows={3}
+                    value={actionModal.deliveryAddress}
+                    onChange={handleAcceptAddressChange}
                   />
                 </label>
               ) : null}

@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-extend-user-and-order-enums
+      author: github-copilot
+      changes:
+        - sql:
+            dbms: postgresql
+            stripComments: true
+            sql: |
+              ALTER TABLE users
+              DROP CONSTRAINT IF EXISTS ck_users_role;
+        - sql:
+            dbms: postgresql
+            stripComments: true
+            sql: |
+              ALTER TABLE users
+              ADD CONSTRAINT ck_users_role
+              CHECK (role IN ('STORE_USER','APPROVER','FULFILLMENT_AGENT','ADMIN'));
+        - sql:
+            dbms: postgresql
+            stripComments: true
+            sql: |
+              ALTER TABLE orders
+              DROP CONSTRAINT IF EXISTS ck_orders_status;
+        - sql:
+            dbms: postgresql
+            stripComments: true
+            sql: |
+              ALTER TABLE orders
+              ADD CONSTRAINT ck_orders_status
+              CHECK (status IN ('PENDING_APPROVAL','APPROVED','ACCEPTED','REJECTED','IN_TRANSIT','FULFILLED'));
+        - addColumn:
+            tableName: orders
+            columns:
+              - column:
+                  name: delivery_address
+                  type: TEXT
+        - sql:
+            stripComments: true
+            sql: |
+              UPDATE orders
+              SET delivery_address = COALESCE(delivery_address, shipping_address);

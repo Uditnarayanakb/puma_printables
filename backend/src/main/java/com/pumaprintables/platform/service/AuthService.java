@@ -21,6 +21,7 @@ import com.pumaprintables.platform.security.JwtService;
 import com.pumaprintables.platform.service.GoogleOAuthService;
 import com.pumaprintables.platform.service.GoogleOAuthService.GoogleProfile;
 import com.pumaprintables.platform.service.exception.UserAlreadyExistsException;
+import com.pumaprintables.platform.service.exception.UserNotFoundException;
 
 @Service
 public class AuthService {
@@ -64,7 +65,7 @@ public class AuthService {
     }
 
     @Transactional
-    public User register(String username, String password, String email, UserRole role) {
+    public User register(String username, String password, String email, UserRole role, String fullName) {
         userRepository.findByUsername(username)
             .ifPresent(existing -> {
                 throw new UserAlreadyExistsException(username);
@@ -76,9 +77,16 @@ public class AuthService {
             .email(email)
             .role(role)
             .authProvider(AuthProvider.LOCAL)
+            .fullName(StringUtils.hasText(fullName) ? fullName : null)
             .loginCount(0)
             .build();
         return userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public User getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+            .orElseThrow(() -> new UserNotFoundException(username));
     }
 
     private String issueToken(User user) {

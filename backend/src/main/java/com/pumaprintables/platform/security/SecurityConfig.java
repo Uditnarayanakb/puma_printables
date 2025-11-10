@@ -38,12 +38,12 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/login/google", "/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/login/google", "/api/v1/auth/register", "/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/v1/products/**").hasAnyRole("STORE_USER", "APPROVER", "ADMIN")
+                .requestMatchers("/api/v1/products/**").hasAnyRole("STORE_USER", "APPROVER", "FULFILLMENT_AGENT", "ADMIN")
                 .requestMatchers("/api/v1/orders/pending", "/api/v1/orders/*/approve", "/api/v1/orders/*/reject").hasAnyRole("APPROVER", "ADMIN")
-                .requestMatchers("/api/v1/orders/*/courier").hasAnyRole("APPROVER", "ADMIN")
-                .requestMatchers("/api/v1/orders/**").hasAnyRole("STORE_USER", "APPROVER", "ADMIN")
+                .requestMatchers("/api/v1/orders/*/courier", "/api/v1/orders/*/accept").hasAnyRole("APPROVER", "FULFILLMENT_AGENT", "ADMIN")
+                .requestMatchers("/api/v1/orders/**").hasAnyRole("STORE_USER", "APPROVER", "FULFILLMENT_AGENT", "ADMIN")
                 .anyRequest().authenticated())
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

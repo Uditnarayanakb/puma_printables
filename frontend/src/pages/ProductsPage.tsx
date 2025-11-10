@@ -3,6 +3,7 @@ import { AppLayout } from "../components/AppLayout";
 import { api, type CreateProductPayload } from "../services/api";
 import type { Product } from "../types/product";
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
+import { useCart } from "../hooks/useCart";
 
 type ProductsPageProps = {
   token: string;
@@ -88,6 +89,21 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isAdmin = user.role === "ADMIN";
+  const canOrder = user.role === "STORE_USER" || user.role === "ADMIN";
+  const {
+    items: cartItems,
+    addItem,
+    incrementItem,
+    decrementItem,
+    setItemQuantity,
+    openCart,
+    syncProductDetails,
+  } = useCart();
+
+  const cartLookup = useMemo(() => {
+    return new Map(cartItems.map((entry) => [entry.product.id, entry]));
+  }, [cartItems]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,7 +112,10 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
 
     api
       .getProducts(token, controller.signal)
-      .then((data) => setProducts(data))
+      .then((data) => {
+        setProducts(data);
+        syncProductDetails(data);
+      })
       .catch((err: unknown) => {
         if (controller.signal.aborted) {
           return;
@@ -114,7 +133,7 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
       });
 
     return () => controller.abort();
-  }, [token]);
+  }, [token, syncProductDetails]);
 
   const activeCount = useMemo(
     () => products.filter((product) => product.active).length,
@@ -307,6 +326,13 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
     }
   };
 
+  const handleToggleCreate = () => {
+    if (!isAdmin) {
+      return;
+    }
+    setIsCreateOpen((prev) => !prev);
+  };
+
   return (
     <AppLayout
       title="Puma Printables Portal"
@@ -371,13 +397,15 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
             </label>
           </div>
 
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => setIsCreateOpen((prev) => !prev)}
-          >
-            {isCreateOpen ? "Close builder" : "New product"}
-          </button>
+          {isAdmin ? (
+            <button
+              className="primary-button"
+              type="button"
+              onClick={handleToggleCreate}
+            >
+              {isCreateOpen ? "Close builder" : "New product"}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -408,7 +436,7 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
         </article>
       </section>
 
-      {isCreateOpen ? (
+      {isAdmin && isCreateOpen ? (
         <section
           className="create-product-card"
           aria-label="Create product"
@@ -682,6 +710,72 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
                       </span>
                     </div>
                   </footer>
+
+                  {canOrder ? (
+                    <div className="product-cart-actions">
+                      {(() => {
+                        const cartEntry = cartLookup.get(product.id);
+                        const quantity = cartEntry?.quantity ?? 0;
+                        const availableToOrder =
+                          product.active && product.stockQuantity > 0;
+
+                        if (quantity > 0) {
+                          return (
+                            <>
+                              <div className="quantity-stepper">
+                                <button
+                                  type="button"
+                                  onClick={() => decrementItem(product.id)}
+                                  disabled={quantity <= 1}
+                                  aria-label="Decrease quantity"
+                                >
+                                  −
+                                </button>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={product.stockQuantity}
+                                  value={quantity}
+                                  onChange={(event) =>
+                                    setItemQuantity(
+                                      product.id,
+                                      Number.parseInt(event.target.value, 10)
+                                    )
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => incrementItem(product.id)}
+                                  disabled={quantity >= product.stockQuantity}
+                                  aria-label="Increase quantity"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                className="view-cart-link"
+                                onClick={openCart}
+                              >
+                                View cart
+                              </button>
+                            </>
+                          );
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            className="add-to-cart-button"
+                            onClick={() => addItem(product, 1)}
+                            disabled={!availableToOrder}
+                          >
+                            {availableToOrder ? "Add to cart" : "Unavailable"}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
                 </div>
               </article>
             );

@@ -65,6 +65,12 @@ public class NotificationService {
             buildOrderSummary("Good news! Your order has been approved.", order));
     }
 
+    public void notifyOrderAccepted(Order order) {
+        sendToUser(order.getUser(),
+            "Order " + order.getId() + " accepted",
+            buildOrderSummary("Your order has been accepted for fulfilment.", order));
+    }
+
     public void notifyOrderRejected(Order order) {
         sendToUser(order.getUser(),
             "Order " + order.getId() + " rejected",
@@ -132,6 +138,10 @@ public class NotificationService {
 
         builder.append("\nPlaced By: ").append(Optional.ofNullable(order.getUser()).map(User::getUsername).orElse("Unknown"))
             .append("\nShipping Address: ").append(Optional.ofNullable(order.getShippingAddress()).orElse("Not provided"));
+
+        if (order.getDeliveryAddress() != null && !order.getDeliveryAddress().isBlank()) {
+            builder.append("\nDelivery Address: ").append(order.getDeliveryAddress());
+        }
 
         if (order.getCourierInfo() != null) {
             builder.append("\nCourier: ").append(order.getCourierInfo().getCourierName())
