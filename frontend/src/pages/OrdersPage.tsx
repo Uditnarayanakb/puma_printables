@@ -556,7 +556,11 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       {!isLoading && !error && orders.length > 0 ? (
         <p className="view-meta small-muted">
           Showing {orders.length} {orders.length === 1 ? "order" : "orders"} in
-          this view{lastSyncedAt ? ` • Updated ${dateFormatter.format(lastSyncedAt)}` : ""}.
+          this view
+          {lastSyncedAt
+            ? ` • Updated ${dateFormatter.format(lastSyncedAt)}`
+            : ""}
+          .
         </p>
       ) : null}
 

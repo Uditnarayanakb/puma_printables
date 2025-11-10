@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/db.changelog-002-notification-log.yaml
   - include:
       file: db/changelog/db.changelog-003-product-images.yaml
+  - include:
+      file: db/changelog/db.changelog-004-auth-enhancements.yaml

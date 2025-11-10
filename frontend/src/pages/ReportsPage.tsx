@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../services/api";
 import type { Order } from "../types/order";
@@ -39,6 +39,9 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const isAdmin = user.role === "ADMIN";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -71,6 +74,34 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
 
     return () => controller.abort();
   }, [token]);
+
+  const handleExport = useCallback(async () => {
+    if (isExporting) {
+      return;
+    }
+    setExportError(null);
+    setIsExporting(true);
+    try {
+      const blob = await api.downloadOnboardingReport(token);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `new-users-${dateStamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(
+        err instanceof Error
+          ? err.message
+          : "Unable to export onboarding snapshot"
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isExporting, token]);
 
   const statusCounts: StatusCounts = useMemo(() => {
     return orders.reduce<StatusCounts>((accumulator, order) => {
@@ -139,11 +170,29 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
       onLogout={onLogout}
     >
       <div className="content-header">
-        <h2>Operations snapshot</h2>
-        <p className="small-muted">
-          Live summary of orders, fulfillment progress, and catalog health.
-        </p>
+        <div className="content-title">
+          <h2>Operations snapshot</h2>
+          <p className="small-muted">
+            Live summary of orders, fulfillment progress, and catalog health.
+          </p>
+        </div>
+        {isAdmin ? (
+          <div className="content-actions">
+            <button
+              type="button"
+              className="secondary-button ghost"
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting
+                ? "Preparing onboarding export…"
+                : "Download new user report"}
+            </button>
+          </div>
+        ) : null}
       </div>
+
+      {exportError ? <div className="error-banner">{exportError}</div> : null}
 
       {isLoading ? (
         <div className="centered">

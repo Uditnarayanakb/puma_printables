@@ -36,6 +36,8 @@ export default defineConfig([
 
 `VITE_API_BASE_URL` defaults to `http://localhost:8080`. Override it in `.env.local` when pointing at a different backend instance.
 
+`VITE_GOOGLE_CLIENT_ID` is optional. Set it to enable the Google Sign-In button (the backend must be configured with matching client IDs).
+
 ## Development workflow
 
 ```bash

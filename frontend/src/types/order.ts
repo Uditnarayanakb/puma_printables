@@ -39,4 +39,7 @@ export type JwtPayload = {
   sub: string;
   role: Role;
   exp: number;
+  name?: string;
+  avatar?: string;
+  provider?: "LOCAL" | "GOOGLE";
 };

@@ -7,6 +7,9 @@ const STORAGE_KEY = "puma.printables.auth";
 type AuthUser = {
   username: string;
   role: JwtPayload["role"];
+  displayName?: string;
+  avatarUrl?: string;
+  provider?: "LOCAL" | "GOOGLE";
 };
 
 type AuthState = {
@@ -32,11 +35,21 @@ function decodeToken(token: string): DecodedToken | null {
     if (expiresAt !== null && expiresAt <= now) {
       return null;
     }
+    const user: AuthUser = {
+      username: payload.sub,
+      role: payload.role,
+    };
+    if (payload.name) {
+      user.displayName = payload.name;
+    }
+    if (payload.avatar) {
+      user.avatarUrl = payload.avatar;
+    }
+    if (payload.provider === "LOCAL" || payload.provider === "GOOGLE") {
+      user.provider = payload.provider;
+    }
     return {
-      user: {
-        username: payload.sub,
-        role: payload.role,
-      },
+      user,
       expiresAt,
     };
   } catch (err) {

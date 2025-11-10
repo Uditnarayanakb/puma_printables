@@ -2,13 +2,16 @@ package com.pumaprintables.platform.web.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pumaprintables.platform.domain.model.User;
+import com.pumaprintables.platform.domain.model.enums.AuthProvider;
 import com.pumaprintables.platform.domain.model.enums.UserRole;
 import com.pumaprintables.platform.domain.repository.UserRepository;
+import com.pumaprintables.platform.service.GoogleOAuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -18,10 +21,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.OffsetDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -48,6 +54,9 @@ class AuthControllerTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private GoogleOAuthService googleOAuthService;
 
     @BeforeEach
     void setUpUser() {
@@ -91,15 +100,40 @@ class AuthControllerTest {
         var adminToken = obtainToken(ADMIN_USERNAME, ADMIN_PASSWORD);
         var registerPayload = new RegisterPayload("new-user", "StrongPass@1", "new-user@example.com", UserRole.STORE_USER.name());
 
-    mockMvc.perform(post("/api/v1/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .content(objectMapper.writeValueAsString(registerPayload)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.username").value("new-user"))
             .andExpect(jsonPath("$.role").value(UserRole.STORE_USER.name()));
 
         assertThat(userRepository.findByUsername("new-user")).isPresent();
+    }
+
+    @Test
+    void whenGoogleCredentialValid_thenReturnsTokenAndPersistsUser() throws Exception {
+        var credential = "test-google-credential";
+        var profile = new GoogleOAuthService.GoogleProfile(
+            "google-subject-123",
+            "google.user@example.com",
+            "Google User",
+            "https://example.com/avatar.png",
+            "en",
+            "Google",
+            "User",
+            OffsetDateTime.now()
+        );
+
+        when(googleOAuthService.verifyCredential(credential)).thenReturn(profile);
+
+        mockMvc.perform(post("/api/v1/auth/login/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new GoogleLoginPayload(credential))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.token").isString());
+
+        assertThat(userRepository.findByAuthProviderAndProviderSubject(AuthProvider.GOOGLE, profile.subject())).isPresent();
     }
 
     private String obtainToken(String username, String password) throws Exception {
@@ -117,4 +151,6 @@ class AuthControllerTest {
     private record LoginPayload(String username, String password) { }
 
     private record RegisterPayload(String username, String password, String email, String role) { }
+
+    private record GoogleLoginPayload(String credential) { }
 }

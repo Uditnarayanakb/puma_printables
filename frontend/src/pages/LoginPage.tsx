@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { api } from "../services/api";
 
 import "../App.css";
@@ -26,7 +27,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const verifyTimeout = useRef<number | null>(null);
+  const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
   useEffect(() => {
     return () => {
@@ -35,6 +38,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       }
     };
   }, []);
+
+  const beginVerification = (token: string) => {
+    onLogin(token);
+    setIsVerifying(true);
+    verifyTimeout.current = window.setTimeout(() => {
+      navigate(redirectPath, { replace: true });
+    }, 1200);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,17 +56,47 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setIsLoading(true);
     try {
       const { token } = await api.login({ username, password });
-      onLogin(token);
-      setIsVerifying(true);
-      verifyTimeout.current = window.setTimeout(() => {
-        navigate(redirectPath, { replace: true });
-      }, 1200);
+      beginVerification(token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in");
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleGoogleSuccess = async (
+    credentials: CredentialResponse
+  ): Promise<void> => {
+    if (isVerifying || isGoogleLoading) {
+      return;
+    }
+    if (!credentials.credential) {
+      setError("Google sign-in did not provide a credential");
+      return;
+    }
+    setError(null);
+    setIsGoogleLoading(true);
+    try {
+      const { token } = await api.loginWithGoogle({
+        credential: credentials.credential,
+      });
+      beginVerification(token);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to sign in with Google right now"
+      );
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError("Google sign-in was cancelled. Please try again.");
+  };
+
+  const isFormDisabled = isLoading || isVerifying || isGoogleLoading;
 
   return (
     <>
@@ -108,7 +149,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               required
               autoFocus
               autoComplete="username"
-              disabled={isLoading || isVerifying}
+              disabled={isFormDisabled}
             />
           </label>
 
@@ -121,17 +162,40 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               onChange={(event) => setPassword(event.target.value)}
               required
               autoComplete="current-password"
-              disabled={isLoading || isVerifying}
+              disabled={isFormDisabled}
             />
           </label>
 
           <button
             className="primary-button"
             type="submit"
-            disabled={isLoading || isVerifying}
+            disabled={isFormDisabled}
           >
             {isLoading ? "Signing in…" : "Sign in"}
           </button>
+
+          {googleEnabled ? (
+            <>
+              <div className="meta-divider" aria-hidden="true">
+                <span>or</span>
+              </div>
+              <div className="google-login" aria-live="polite">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  useOneTap
+                  theme="outline"
+                  shape="rectangular"
+                  text="signin_with"
+                />
+                {isGoogleLoading ? (
+                  <p className="small-muted" style={{ marginTop: "0.5rem" }}>
+                    Finishing Google sign-in…
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </form>
       </div>
     </>

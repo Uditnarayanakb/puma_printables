@@ -56,6 +56,9 @@ async function parseErrorMessage(response: Response): Promise<string> {
     if (typeof data.message === "string") {
       return data.message;
     }
+    if (typeof data.detail === "string") {
+      return data.detail;
+    }
   } catch {
     // ignore JSON parse errors
   }
@@ -69,6 +72,10 @@ export type LoginRequest = {
 
 export type LoginResponse = {
   token: string;
+};
+
+export type GoogleLoginRequest = {
+  credential: string;
 };
 
 export type CreateProductPayload = {
@@ -104,6 +111,14 @@ export type CourierInfoPayload = {
 export const api = {
   login(input: LoginRequest, signal?: AbortSignal) {
     return request<LoginResponse>("/api/v1/auth/login", {
+      method: "POST",
+      body: input,
+      signal,
+    });
+  },
+
+  loginWithGoogle(input: GoogleLoginRequest, signal?: AbortSignal) {
+    return request<LoginResponse>("/api/v1/auth/login/google", {
       method: "POST",
       body: input,
       signal,
@@ -209,5 +224,30 @@ export const api = {
       token,
       signal,
     });
+  },
+
+  async downloadOnboardingReport(
+    token: string,
+    days = 30,
+    signal?: AbortSignal
+  ) {
+    const params = new URLSearchParams({ days: String(days) });
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/admin/users/onboarding/export?${params}`,
+      {
+        method: "GET",
+        headers: {
+          [AUTH_HEADER]: `Bearer ${token}`,
+        },
+        signal,
+      }
+    );
+
+    if (!response.ok) {
+      const message = await parseErrorMessage(response);
+      throw new Error(message);
+    }
+
+    return response.blob();
   },
 };

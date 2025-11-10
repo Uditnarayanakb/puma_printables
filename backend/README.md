@@ -16,6 +16,7 @@ and delivers notification emails. The project targets Java 17 and follows a laye
 
 ```powershell
 cd backend
+copy .env.example .env
 ./mvnw.cmd clean verify
 ./mvnw.cmd spring-boot:run
 ```
@@ -35,6 +36,9 @@ variables when running locally:
 | `SPRING_MAIL_PORT`                  | SMTP port                   | `1025`                                             |
 | `JWT_SECRET`                        | HMAC key for token signing  | `change-me-in-prod`                                |
 | `JWT_EXPIRY_MINUTES`                | Token TTL                   | `60`                                               |
+| `PUMA_GOOGLE_AUTH_ENABLED`          | Enable Google sign-in       | `false`                                            |
+| `PUMA_GOOGLE_AUTH_CLIENT_IDS`       | Comma-separated OAuth IDs   | _(empty, configure per environment)_              |
+| `PUMA_GOOGLE_AUTH_HOSTED_DOMAIN`    | Restrict Google domain      | _(empty, optional)_                               |
 | `PUMA_NOTIFICATIONS_ENABLED`        | Toggle emails on/off        | `true`                                             |
 | `PUMA_NOTIFICATIONS_FROM`           | From address for emails     | `notifications@pumaprintables.local`               |
 | `PUMA_NOTIFY_APPROVERS_ON_CREATION` | CC approvers for new orders | `true`                                             |

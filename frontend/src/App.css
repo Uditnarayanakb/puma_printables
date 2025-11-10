@@ -686,6 +686,35 @@ textarea:focus-visible {
   width: 70%;
 }
 
+.meta-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.meta-divider::before,
+.meta-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.meta-divider span {
+  opacity: 0.8;
+}
+
+.google-login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
 .skeleton-line-sm {
   height: 0.8rem;
   width: 50%;

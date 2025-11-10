@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pumaprintables.platform.domain.model.Product;
 import com.pumaprintables.platform.domain.model.User;
+import com.pumaprintables.platform.domain.model.enums.AuthProvider;
 import com.pumaprintables.platform.domain.model.enums.UserRole;
 import com.pumaprintables.platform.domain.repository.OrderRepository;
 import com.pumaprintables.platform.domain.repository.ProductRepository;
@@ -100,6 +101,8 @@ public class SampleDataInitializer implements CommandLineRunner {
             .password(passwordEncoder.encode(rawPassword))
             .email(email)
             .role(role)
+            .authProvider(AuthProvider.LOCAL)
+            .loginCount(0)
             .build();
         return userRepository.save(user);
     }

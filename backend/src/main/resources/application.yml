@@ -64,6 +64,10 @@ puma:
     jwt:
       secret: ${JWT_SECRET:change-me-in-prod}
       expiry-minutes: ${JWT_EXPIRY_MINUTES:60}
+    google:
+      enabled: ${PUMA_GOOGLE_AUTH_ENABLED:false}
+      client-ids: ${PUMA_GOOGLE_AUTH_CLIENT_IDS:}
+      hosted-domain: ${PUMA_GOOGLE_AUTH_HOSTED_DOMAIN:}
   notifications:
     enabled: ${PUMA_NOTIFICATIONS_ENABLED:true}
     from-address: ${PUMA_NOTIFICATIONS_FROM:notifications@pumaprintables.local}
