@@ -18,7 +18,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -49,9 +48,6 @@ public class Product {
 
     @Column(name = "image_url", length = 512)
     private String imageUrl;
-
-    @Column(name = "price", nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "specifications", nullable = false, columnDefinition = "jsonb")

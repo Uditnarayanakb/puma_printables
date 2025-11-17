@@ -14,7 +14,6 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -156,8 +155,6 @@ public class NotificationService {
                 .map(this::formatItem)
                 .collect(Collectors.joining("\n")));
 
-        builder.append("\n\nTotal: ").append(calculateTotal(order));
-
         if (order.getApproval() != null && order.getApproval().getComments() != null && !order.getApproval().getComments().isBlank()) {
             builder.append("\nApprover Comments: ").append(order.getApproval().getComments());
         }
@@ -166,13 +163,6 @@ public class NotificationService {
     }
 
     private String formatItem(OrderItem item) {
-        BigDecimal lineTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-        return "- " + item.getProduct().getName() + " x" + item.getQuantity() + " @ " + item.getUnitPrice() + " = " + lineTotal;
-    }
-
-    private BigDecimal calculateTotal(Order order) {
-        return order.getItems().stream()
-            .map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return "- " + item.getProduct().getName() + " x" + item.getQuantity();
     }
 }

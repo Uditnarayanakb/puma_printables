@@ -38,6 +38,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/", "/index.html", "/favicon.ico", "/assets/**", "/static/**", "/catalog/**").permitAll()
                 .requestMatchers("/api/v1/auth/login", "/api/v1/auth/login/google", "/api/v1/auth/register", "/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/products/**").hasAnyRole("STORE_USER", "APPROVER", "FULFILLMENT_AGENT", "ADMIN")

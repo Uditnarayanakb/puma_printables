@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-purge-all-product-and-order-data
+      author: github-copilot
+      changes:
+        - sql:
+            comment: Remove all legacy order references prior to relaunch
+            sql: |
+              DELETE FROM courier_info;
+              DELETE FROM approvals;
+              DELETE FROM order_items;
+              DELETE FROM orders;
+        - sql:
+            comment: Remove all legacy products prior to relaunch
+            sql: |
+              DELETE FROM products;

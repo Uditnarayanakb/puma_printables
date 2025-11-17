@@ -27,7 +27,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -117,7 +116,6 @@ class OrderLifecycleIntegrationTest {
         productPayload.put("sku", "FLOW-SKU-1");
         productPayload.put("name", "Lifecycle Hoodie");
         productPayload.put("description", "End-to-end verified hoodie");
-        productPayload.put("price", 1999.00);
         productPayload.set("specifications", specifications);
         productPayload.put("stockQuantity", 30);
         productPayload.put("active", true);
@@ -153,7 +151,6 @@ class OrderLifecycleIntegrationTest {
         JsonNode orderResponse = perform(post("/api/v1/orders"), orderPayload, storeToken)
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.status").value(OrderStatus.PENDING_APPROVAL.name()))
-            .andExpect(jsonPath("$.totalAmount").value(5997.00))
             .andReturn()
             .getResponse()
             .getContentAsString()
@@ -196,7 +193,6 @@ class OrderLifecycleIntegrationTest {
         teePayload.put("sku", "FLOW-SKU-TEE");
         teePayload.put("name", "Demo Tee");
         teePayload.put("description", "White logo tee");
-        teePayload.put("price", 799.00);
         teePayload.putObject("specifications").put("material", "cotton");
         teePayload.put("stockQuantity", 50);
         teePayload.put("active", true);
@@ -212,7 +208,6 @@ class OrderLifecycleIntegrationTest {
         hoodiePayload.put("sku", "FLOW-SKU-HOOD");
         hoodiePayload.put("name", "Demo Hoodie");
         hoodiePayload.put("description", "Black zip hoodie");
-        hoodiePayload.put("price", 2199.00);
         hoodiePayload.putObject("specifications").put("material", "fleece");
         hoodiePayload.put("stockQuantity", 25);
         hoodiePayload.put("active", true);
@@ -257,27 +252,13 @@ class OrderLifecycleIntegrationTest {
         assertThat(responseItems).hasSize(2);
         assertThat(responseItems.findValuesAsText("productId"))
             .containsExactlyInAnyOrder(teeId, hoodieId);
-
-        BigDecimal teeLineTotal = BigDecimal.valueOf(799.00).multiply(BigDecimal.valueOf(2));
-        BigDecimal hoodieLineTotal = BigDecimal.valueOf(2199.00);
-        BigDecimal expectedTotal = teeLineTotal.add(hoodieLineTotal);
-
         responseItems.forEach(itemNode -> {
-            String productId = itemNode.get("productId").asText();
-            BigDecimal lineTotal = itemNode.get("lineTotal").decimalValue();
-            if (productId.equals(teeId)) {
-                assertThat(lineTotal).isEqualByComparingTo(teeLineTotal);
-            } else if (productId.equals(hoodieId)) {
-                assertThat(lineTotal).isEqualByComparingTo(hoodieLineTotal);
-            }
+            assertThat(itemNode.get("quantity").asInt()).isGreaterThan(0);
         });
 
-        BigDecimal actualTotal = orderResponse.get("totalAmount").decimalValue();
-        assertThat(actualTotal).isEqualByComparingTo(expectedTotal);
-
-    UUID orderId = UUID.fromString(orderResponse.get("id").asText());
-    Order hydrated = orderService.getOrder(orderId);
-    assertThat(hydrated.getItems()).hasSize(2);
+        UUID orderId = UUID.fromString(orderResponse.get("id").asText());
+        Order hydrated = orderService.getOrder(orderId);
+        assertThat(hydrated.getItems()).hasSize(2);
     }
 
     private String obtainToken(String username, String password) throws Exception {

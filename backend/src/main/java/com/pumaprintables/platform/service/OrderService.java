@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -67,13 +66,13 @@ public class OrderService {
             Product product = productRepository.findById(itemPayload.productId())
                 .orElseThrow(() -> new ProductNotFoundException(itemPayload.productId().toString()));
 
-            OrderItem orderItem = OrderItem.of(order, product, itemPayload.quantity(), product.getPrice());
+            OrderItem orderItem = OrderItem.of(order, product, itemPayload.quantity());
             order.addItem(orderItem);
         });
 
-    Order saved = orderRepository.save(order);
-    hydrateOrder(saved);
-    notificationService.notifyOrderCreated(saved);
+        Order saved = orderRepository.save(order);
+        hydrateOrder(saved);
+        notificationService.notifyOrderCreated(saved);
         return saved;
     }
 
@@ -122,9 +121,9 @@ public class OrderService {
         order.setApproval(approval);
 
         approvalRepository.save(approval);
-    Order saved = orderRepository.save(order);
-    hydrateOrder(saved);
-    notificationService.notifyOrderApproved(saved);
+        Order saved = orderRepository.save(order);
+        hydrateOrder(saved);
+        notificationService.notifyOrderApproved(saved);
         return saved;
     }
 
@@ -151,9 +150,9 @@ public class OrderService {
         order.setApproval(approval);
 
         approvalRepository.save(approval);
-    Order saved = orderRepository.save(order);
-    hydrateOrder(saved);
-    notificationService.notifyOrderRejected(saved);
+        Order saved = orderRepository.save(order);
+        hydrateOrder(saved);
+        notificationService.notifyOrderRejected(saved);
         return saved;
     }
 
@@ -185,9 +184,9 @@ public class OrderService {
         order.setStatus(OrderStatus.ACCEPTED);
         order.setDeliveryAddress(normalizedAddress);
 
-        Order saved = orderRepository.save(order);
-        hydrateOrder(saved);
-        notificationService.notifyOrderAccepted(saved);
+            Order saved = orderRepository.save(order);
+            hydrateOrder(saved);
+            notificationService.notifyOrderAccepted(saved);
         return saved;
     }
 
@@ -195,8 +194,8 @@ public class OrderService {
     public Order addCourierInfo(UUID orderId, String courierName, String trackingNumber, OffsetDateTime dispatchDate) {
         Order order = getOrder(orderId);
 
-        if (order.getStatus() != OrderStatus.APPROVED && order.getStatus() != OrderStatus.ACCEPTED && order.getStatus() != OrderStatus.IN_TRANSIT) {
-            throw new InvalidOrderStateException("Courier details can only be added to approved or accepted orders");
+        if (order.getStatus() != OrderStatus.ACCEPTED && order.getStatus() != OrderStatus.IN_TRANSIT) {
+            throw new InvalidOrderStateException("Courier details can only be added after the order is marked for fulfilment");
         }
 
         CourierInfo courierInfo = order.getCourierInfo();
@@ -213,13 +212,13 @@ public class OrderService {
         order.setCourierInfo(courierInfo);
         courierInfoRepository.save(courierInfo);
 
-        if (order.getStatus() == OrderStatus.APPROVED || order.getStatus() == OrderStatus.ACCEPTED) {
+        if (order.getStatus() == OrderStatus.ACCEPTED) {
             order.setStatus(OrderStatus.IN_TRANSIT);
         }
 
-    Order saved = orderRepository.save(order);
-    hydrateOrder(saved);
-    notificationService.notifyCourierUpdated(saved);
+        Order saved = orderRepository.save(order);
+        hydrateOrder(saved);
+        notificationService.notifyCourierUpdated(saved);
         return saved;
     }
 
@@ -231,9 +230,12 @@ public class OrderService {
     private void hydrateOrder(Order order) {
         order.getItems().forEach(item -> {
             item.getProduct().getName();
-            item.getProduct().getPrice();
             item.getProduct().getImageUrl();
         });
+        if (order.getUser() != null) {
+            order.getUser().getUsername();
+            order.getUser().getFullName();
+        }
         if (order.getApproval() != null) {
             order.getApproval().getStatus();
             order.getApproval().getApprover().getUsername();
@@ -247,8 +249,5 @@ public class OrderService {
 
     public record ItemPayload(UUID productId, int quantity) {
 
-        public BigDecimal total(Product product) {
-            return product.getPrice().multiply(BigDecimal.valueOf(quantity));
-        }
     }
 }

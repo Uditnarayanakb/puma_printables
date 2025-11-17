@@ -26,7 +26,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -98,7 +97,6 @@ class OrderControllerTest {
             .name("Puma Jacket")
             .description("Water-resistant jacket")
             .imageUrl(PRODUCT_IMAGE_URL)
-            .price(new BigDecimal("3499.00"))
             .specifications(specifications)
             .stockQuantity(25)
             .active(true)
@@ -120,8 +118,7 @@ class OrderControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.status").value(OrderStatus.PENDING_APPROVAL.name()))
             .andExpect(jsonPath("$.items[0].productId").value(product.getId().toString()))
-            .andExpect(jsonPath("$.items[0].imageUrl").value(PRODUCT_IMAGE_URL))
-            .andExpect(jsonPath("$.totalAmount").value(6998.00));
+            .andExpect(jsonPath("$.items[0].imageUrl").value(PRODUCT_IMAGE_URL));
 
         assertThat(orderRepository.count()).isEqualTo(1);
     }

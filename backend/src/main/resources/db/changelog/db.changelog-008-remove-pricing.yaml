@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-remove-pricing-columns
+      author: github-copilot
+      changes:
+        - dropColumn:
+            columnName: unit_price
+            tableName: order_items
+        - dropColumn:
+            columnName: price
+            tableName: products

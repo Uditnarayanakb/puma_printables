@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 import "../App.css";
@@ -81,6 +81,44 @@ export function AppLayout({
   const cartLabel = totalQuantity
     ? `Open cart (${totalQuantity} item${totalQuantity === 1 ? "" : "s"})`
     : "Open cart";
+
+  useEffect(() => {
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const ctrlOrMeta = event.ctrlKey || event.metaKey;
+
+      const blocked =
+        event.key === "F12" ||
+        (ctrlOrMeta &&
+          event.shiftKey &&
+          ["i", "j", "c", "k", "m", "p"].includes(key)) ||
+        (ctrlOrMeta && event.altKey && ["i", "j"].includes(key)) ||
+        (ctrlOrMeta && ["p", "s", "u"].includes(key));
+
+      if (blocked) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    const disablePrint = () => {
+      console.warn("Printing is disabled for this application.");
+    };
+
+    document.addEventListener("contextmenu", handleContextMenu, true);
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("beforeprint", disablePrint, true);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("beforeprint", disablePrint, true);
+    };
+  }, []);
 
   return (
     <div className="app-layout">

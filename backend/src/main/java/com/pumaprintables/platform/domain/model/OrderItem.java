@@ -17,7 +17,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -49,16 +48,12 @@ public class OrderItem {
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
-    private BigDecimal unitPrice;
-
-    public static OrderItem of(Order order, Product product, Integer quantity, BigDecimal unitPrice) {
+    public static OrderItem of(Order order, Product product, Integer quantity) {
         OrderItem item = new OrderItem();
         item.setId(new OrderItemId());
         item.setOrder(order);
         item.setProduct(product);
         item.setQuantity(quantity);
-        item.setUnitPrice(unitPrice);
         return item;
     }
 

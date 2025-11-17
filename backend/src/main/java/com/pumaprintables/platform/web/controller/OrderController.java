@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -36,6 +36,13 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    private static final Set<OrderStatus> FULFILLMENT_VISIBLE_STATUSES = EnumSet.of(
+        OrderStatus.APPROVED,
+        OrderStatus.ACCEPTED,
+        OrderStatus.IN_TRANSIT,
+        OrderStatus.FULFILLED
+    );
+
     public OrderController(OrderService orderService) {
         this.orderService = orderService;
     }
@@ -43,15 +50,32 @@ public class OrderController {
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getOrders(Authentication authentication,
                                                          @RequestParam(value = "status", required = false) OrderStatus status) {
-        boolean isPrivileged = hasAnyRole(authentication, Set.of("ROLE_ADMIN", "ROLE_APPROVER"));
+        boolean isAdminOrApprover = hasAnyRole(authentication, Set.of("ROLE_ADMIN", "ROLE_APPROVER"));
+        boolean isFulfillment = hasAnyRole(authentication, Set.of("ROLE_FULFILLMENT_AGENT"));
 
         List<Order> orders;
-        if (status != null && isPrivileged) {
-            orders = orderService.getOrdersByStatus(status);
-        } else if (isPrivileged) {
-            orders = orderService.getAllOrders();
+        if (status != null) {
+            if (isAdminOrApprover) {
+                orders = orderService.getOrdersByStatus(status);
+            } else if (isFulfillment) {
+                if (!FULFILLMENT_VISIBLE_STATUSES.contains(status)) {
+                    orders = List.of();
+                } else {
+                    orders = orderService.getOrdersByStatus(status);
+                }
+            } else {
+                orders = orderService.getOrdersForUser(authentication.getName());
+            }
         } else {
-            orders = orderService.getOrdersForUser(authentication.getName());
+            if (isAdminOrApprover) {
+                orders = orderService.getAllOrders();
+            } else if (isFulfillment) {
+                orders = orderService.getAllOrders().stream()
+                    .filter(order -> FULFILLMENT_VISIBLE_STATUSES.contains(order.getStatus()))
+                    .toList();
+            } else {
+                orders = orderService.getOrdersForUser(authentication.getName());
+            }
         }
 
         return ResponseEntity.ok(orders.stream().map(this::toResponse).toList());
@@ -113,7 +137,7 @@ public class OrderController {
         return ResponseEntity.ok(toResponse(order));
     }
 
-    @PreAuthorize("hasAnyRole('APPROVER','FULFILLMENT_AGENT','ADMIN')")
+    @PreAuthorize("hasAnyRole('FULFILLMENT_AGENT','ADMIN')")
     @PostMapping("/{orderId}/courier")
     public ResponseEntity<OrderResponse> addCourierInfo(@PathVariable UUID orderId,
                                                         @Valid @RequestBody CourierInfoRequest request) {
@@ -127,22 +151,13 @@ public class OrderController {
 
     private OrderResponse toResponse(Order order) {
         List<OrderItemResponse> items = order.getItems().stream()
-            .map(item -> {
-                BigDecimal lineTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-                return new OrderItemResponse(
-                    item.getProduct().getId(),
-                    item.getProduct().getName(),
-                    item.getProduct().getImageUrl(),
-                    item.getQuantity(),
-                    item.getUnitPrice(),
-                    lineTotal
-                );
-            })
+            .map(item -> new OrderItemResponse(
+                item.getProduct().getId(),
+                item.getProduct().getName(),
+                item.getProduct().getImageUrl(),
+                item.getQuantity()
+            ))
             .toList();
-
-        BigDecimal total = items.stream()
-            .map(OrderItemResponse::lineTotal)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         CourierInfoResponse courierInfo = null;
         if (order.getCourierInfo() != null) {
@@ -160,9 +175,10 @@ public class OrderController {
             order.getDeliveryAddress(),
             order.getCustomerGst(),
             items,
-            total,
             order.getCreatedAt(),
-            courierInfo
+            courierInfo,
+            order.getUser() != null ? order.getUser().getUsername() : null,
+            order.getUser() != null ? order.getUser().getFullName() : null
         );
     }
 

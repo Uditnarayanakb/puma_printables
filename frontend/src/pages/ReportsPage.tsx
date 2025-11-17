@@ -18,7 +18,6 @@ type StatusCounts = Record<Order["status"], number>;
 type TopItem = {
   name: string;
   quantity: number;
-  revenue: number;
 };
 
 const STATUS_LABELS: Record<Order["status"], string> = {
@@ -29,11 +28,6 @@ const STATUS_LABELS: Record<Order["status"], string> = {
   IN_TRANSIT: "In transit",
   FULFILLED: "Fulfilled",
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-});
 
 export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -111,15 +105,10 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
     }, {} as StatusCounts);
   }, [orders]);
 
-  const revenue = useMemo(() => {
-    return orders
-      .filter(
-        (order) =>
-          order.status === "APPROVED" ||
-          order.status === "IN_TRANSIT" ||
-          order.status === "FULFILLED"
-      )
-      .reduce((sum, order) => sum + order.totalAmount, 0);
+  const ordersInMotion = useMemo(() => {
+    return orders.filter(
+      (order) => order.status === "IN_TRANSIT" || order.status === "FULFILLED"
+    ).length;
   }, [orders]);
 
   const averageItemsPerOrder = useMemo(() => {
@@ -134,11 +123,8 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
     return totalItems / orders.length;
   }, [orders]);
 
-  const inventoryValue = useMemo(() => {
-    return products.reduce(
-      (sum, product) => sum + product.price * product.stockQuantity,
-      0
-    );
+  const totalUnitsOnHand = useMemo(() => {
+    return products.reduce((sum, product) => sum + product.stockQuantity, 0);
   }, [products]);
 
   const topItems = useMemo(() => {
@@ -148,12 +134,10 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
         const existing = map.get(item.productId);
         if (existing) {
           existing.quantity += item.quantity;
-          existing.revenue += item.lineTotal;
         } else {
           map.set(item.productId, {
             name: item.productName,
             quantity: item.quantity,
-            revenue: item.lineTotal,
           });
         }
       });
@@ -217,20 +201,16 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
               <span className="small-muted">Awaiting approver action</span>
             </article>
             <article className="metric-card">
-              <h3>Revenue pipeline</h3>
-              <p className="metric-value">
-                {currencyFormatter.format(revenue)}
-              </p>
+              <h3>Orders in motion</h3>
+              <p className="metric-value">{ordersInMotion}</p>
               <span className="small-muted">
-                Approved + in transit + fulfilled
+                In transit or fulfilled statuses
               </span>
             </article>
             <article className="metric-card">
-              <h3>Inventory value</h3>
-              <p className="metric-value">
-                {currencyFormatter.format(inventoryValue)}
-              </p>
-              <span className="small-muted">Price × stock across SKUs</span>
+              <h3>Total units on hand</h3>
+              <p className="metric-value">{totalUnitsOnHand}</p>
+              <span className="small-muted">Catalog stock levels</span>
             </article>
           </section>
 
@@ -277,7 +257,6 @@ export function ReportsPage({ token, user, onLogout }: ReportsPageProps) {
                           {item.quantity} units
                         </span>
                       </div>
-                      <span>{currencyFormatter.format(item.revenue)}</span>
                     </li>
                   ))}
                 </ol>

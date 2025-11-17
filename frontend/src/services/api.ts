@@ -9,7 +9,7 @@ import type {
 } from "../types/user";
 import type { UserRole } from "../types/order";
 
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
 const AUTH_HEADER = "Authorization";
@@ -97,7 +97,6 @@ export type CreateProductPayload = {
   sku: string;
   name: string;
   description: string;
-  price: number;
   imageUrl?: string | null;
   specifications: Record<string, string | number | boolean>;
   stockQuantity: number;

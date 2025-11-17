@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
-import { api, type CreateProductPayload } from "../services/api";
+import { api, API_BASE_URL } from "../services/api";
 import type { Product } from "../types/product";
-import type { ChangeEvent, CSSProperties, FormEvent } from "react";
+import type { CSSProperties } from "react";
 import { useCart } from "../hooks/useCart";
 
 type ProductsPageProps = {
@@ -14,88 +14,35 @@ type ProductsPageProps = {
   onLogout: () => void;
 };
 
-type FilterValue = "ALL" | "ACTIVE" | "INACTIVE";
-
-type SortOption = "NEWEST" | "PRICE_ASC" | "PRICE_DESC";
-
-type SpecificationField = {
-  id: string;
-  key: string;
-  value: string;
+type ImagePreviewState = {
+  url: string;
+  title: string;
 };
 
-type CreateProductForm = {
-  sku: string;
-  name: string;
-  description: string;
-  price: string;
-  imageUrl: string;
-  stockQuantity: string;
-  active: boolean;
-  specifications: SpecificationField[];
+const ABSOLUTE_URL_PATTERN = /^https?:\/\//i;
+
+const resolveProductImageUrl = (imageUrl?: string | null) => {
+  if (!imageUrl) {
+    return undefined;
+  }
+  if (ABSOLUTE_URL_PATTERN.test(imageUrl)) {
+    return encodeURI(imageUrl);
+  }
+  const normalized = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  return encodeURI(`${API_BASE_URL}${normalized}`);
 };
-
-const FILTER_OPTIONS: Array<{ label: string; value: FilterValue }> = [
-  { label: "All products", value: "ALL" },
-  { label: "Active only", value: "ACTIVE" },
-  { label: "Inactive only", value: "INACTIVE" },
-];
-
-const SORT_OPTIONS: Array<{ label: string; value: SortOption }> = [
-  { label: "Newest first", value: "NEWEST" },
-  { label: "Price: Low to high", value: "PRICE_ASC" },
-  { label: "Price: High to low", value: "PRICE_DESC" },
-];
-
-const currencyFormatter = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-});
-
-const dateFormatter = new Intl.DateTimeFormat("en-IN", {
-  dateStyle: "medium",
-});
-
-let specFieldCounter = 0;
-
-const createSpecField = (): SpecificationField => ({
-  id: `spec-${specFieldCounter++}`,
-  key: "",
-  value: "",
-});
-
-const buildInitialFormState = (): CreateProductForm => ({
-  sku: "",
-  name: "",
-  description: "",
-  price: "",
-  imageUrl: "",
-  stockQuantity: "",
-  active: true,
-  specifications: [createSpecField(), createSpecField()],
-});
 
 export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filter, setFilter] = useState<FilterValue>("ALL");
-  const [sort, setSort] = useState<SortOption>("NEWEST");
-  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateProductForm>(() =>
-    buildInitialFormState()
-  );
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isAdmin = user.role === "ADMIN";
+  const [preview, setPreview] = useState<ImagePreviewState | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const canOrder = user.role === "STORE_USER" || user.role === "ADMIN";
   const {
     items: cartItems,
     addItem,
-    incrementItem,
-    decrementItem,
     setItemQuantity,
     openCart,
     syncProductDetails,
@@ -135,203 +82,34 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
     return () => controller.abort();
   }, [token, syncProductDetails]);
 
-  const activeCount = useMemo(
-    () => products.filter((product) => product.active).length,
-    [products]
-  );
-
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-
-    const dataset = products.filter((product) => {
-      if (filter === "ACTIVE" && !product.active) {
-        return false;
-      }
-      if (filter === "INACTIVE" && product.active) {
-        return false;
-      }
-
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      return (
-        product.name.toLowerCase().includes(normalizedSearch) ||
-        product.sku.toLowerCase().includes(normalizedSearch)
-      );
-    });
-
-    const sorted = [...dataset];
-    switch (sort) {
-      case "PRICE_ASC":
-        sorted.sort((a, b) => a.price - b.price);
-        break;
-      case "PRICE_DESC":
-        sorted.sort((a, b) => b.price - a.price);
-        break;
-      default:
-        sorted.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+  useEffect(() => {
+    if (!preview) {
+      setIsPreviewLoading(false);
+      setPreviewError(null);
+      return;
     }
-
-    return sorted;
-  }, [products, filter, searchTerm, sort]);
-
-  const handleFieldChange =
-    (field: keyof CreateProductForm) =>
-    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const value =
-        event.target.type === "checkbox"
-          ? (event.target as HTMLInputElement).checked
-          : event.target.value;
-
-      setCreateForm((prev) => ({
-        ...prev,
-        [field]: value,
-      }));
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPreview(null);
+      }
     };
+    window.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [preview]);
 
-  const handleSpecChange = (
-    id: string,
-    field: "key" | "value",
-    value: string
-  ) => {
-    setCreateForm((prev) => ({
-      ...prev,
-      specifications: prev.specifications.map((spec) =>
-        spec.id === id ? { ...spec, [field]: value } : spec
-      ),
-    }));
-  };
-
-  const handleRemoveSpec = (id: string) => {
-    setCreateForm((prev) => {
-      if (prev.specifications.length === 1) {
-        return prev;
-      }
-      return {
-        ...prev,
-        specifications: prev.specifications.filter((spec) => spec.id !== id),
-      };
-    });
-  };
-
-  const handleAddSpec = () => {
-    setCreateForm((prev) => ({
-      ...prev,
-      specifications: [...prev.specifications, createSpecField()],
-    }));
-  };
-
-  const resetForm = () => {
-    setCreateForm(buildInitialFormState());
-    setCreateError(null);
-    setCreateSuccess(null);
-  };
-
-  const handleCancelCreate = () => {
-    resetForm();
-    setIsCreateOpen(false);
-  };
-
-  const handleCreateProduct = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const sku = createForm.sku.trim();
-    const name = createForm.name.trim();
-    const description = createForm.description.trim();
-    const priceValue = Number(createForm.price);
-    const stockValue = Number.parseInt(createForm.stockQuantity, 10);
-    const imageUrl = createForm.imageUrl.trim();
-
-    if (!sku || !name || !description) {
-      setCreateError("Please complete SKU, name, and description.");
-      setCreateSuccess(null);
-      return;
-    }
-
-    if (!Number.isFinite(priceValue) || priceValue <= 0) {
-      setCreateError("Enter a valid price greater than zero.");
-      setCreateSuccess(null);
-      return;
-    }
-
-    if (!Number.isInteger(stockValue) || stockValue < 0) {
-      setCreateError("Stock must be zero or a positive whole number.");
-      setCreateSuccess(null);
-      return;
-    }
-
-    const specificationsEntries = createForm.specifications
-      .map((spec) => ({
-        key: spec.key.trim(),
-        value: spec.value.trim(),
-      }))
-      .filter((spec) => spec.key);
-
-    if (specificationsEntries.length === 0) {
-      setCreateError("Add at least one specification to describe the SKU.");
-      setCreateSuccess(null);
-      return;
-    }
-
-    const specifications = specificationsEntries.reduce<Record<string, string>>(
-      (acc, entry) => {
-        acc[entry.key] = entry.value;
-        return acc;
-      },
-      {}
+  const visibleProducts = useMemo(() => {
+    return [...products].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-
-    const payload: CreateProductPayload = {
-      sku,
-      name,
-      description,
-      price: priceValue,
-      imageUrl: imageUrl ? imageUrl : undefined,
-      stockQuantity: stockValue,
-      specifications,
-      active: createForm.active,
-    };
-
-    setIsSubmitting(true);
-    setCreateError(null);
-    setCreateSuccess(null);
-
-    const controller = new AbortController();
-
-    try {
-      const created = await api.createProduct(
-        token,
-        payload,
-        controller.signal
-      );
-      setProducts((prev) => [created, ...prev]);
-      setCreateSuccess(`${created.name} is now in the catalog.`);
-      setCreateError(null);
-      setCreateForm(buildInitialFormState());
-    } catch (err) {
-      if (!controller.signal.aborted) {
-        setCreateError(
-          err instanceof Error
-            ? err.message
-            : "Unable to create the product right now."
-        );
-        setCreateSuccess(null);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleToggleCreate = () => {
-    if (!isAdmin) {
-      return;
-    }
-    setIsCreateOpen((prev) => !prev);
-  };
+  }, [products]);
 
   return (
     <AppLayout
@@ -340,302 +118,29 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
       role={user.role}
       onLogout={onLogout}
     >
-      <div className="content-header">
-        <div className="content-title">
-          <h2>Product catalog</h2>
-          <p className="small-muted">
-            Monitor inventory health, launch new SKUs, and keep specifications
-            aligned for fabrication.
-          </p>
-        </div>
-        <div className="content-actions">
-          <div className="toolbar">
-            <label className="meta-block" htmlFor="product-filter">
-              <span className="meta-label">State</span>
-              <select
-                id="product-filter"
-                className="filter-select"
-                value={filter}
-                onChange={(event) =>
-                  setFilter(event.target.value as FilterValue)
-                }
-              >
-                {FILTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="meta-block" htmlFor="product-sort">
-              <span className="meta-label">Sort</span>
-              <select
-                id="product-sort"
-                className="filter-select"
-                value={sort}
-                onChange={(event) => setSort(event.target.value as SortOption)}
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="meta-block" htmlFor="product-search">
-              <span className="meta-label">Search</span>
-              <input
-                id="product-search"
-                type="search"
-                className="filter-input"
-                placeholder="Search SKU or name"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </label>
-          </div>
-
-          {isAdmin ? (
-            <button
-              className="primary-button"
-              type="button"
-              onClick={handleToggleCreate}
-            >
-              {isCreateOpen ? "Close builder" : "New product"}
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <section className="metric-grid" aria-label="Catalog overview">
-        <article
-          className="metric-card"
-          style={{ "--card-index": "0" } as CSSProperties}
-        >
-          <h3>Total SKUs</h3>
-          <p className="metric-value">{products.length}</p>
-          <span className="small-muted">Across all categories</span>
-        </article>
-        <article
-          className="metric-card"
-          style={{ "--card-index": "1" } as CSSProperties}
-        >
-          <h3>Active inventory</h3>
-          <p className="metric-value">{activeCount}</p>
-          <span className="small-muted">Ready to be ordered</span>
-        </article>
-        <article
-          className="metric-card"
-          style={{ "--card-index": "2" } as CSSProperties}
-        >
-          <h3>Inactive slots</h3>
-          <p className="metric-value">{products.length - activeCount}</p>
-          <span className="small-muted">Parked for revisions</span>
-        </article>
-      </section>
-
-      {isAdmin && isCreateOpen ? (
-        <section
-          className="create-product-card"
-          aria-label="Create product"
-          style={{ "--card-index": "0" } as CSSProperties}
-        >
-          <header className="create-product-header">
-            <div>
-              <h3>Launch a new SKU</h3>
-              <p className="small-muted">
-                Provide merchandising details and specs so approvers can quote
-                jobs confidently.
-              </p>
-            </div>
-          </header>
-
-          {createError ? (
-            <div className="error-banner" role="alert">
-              {createError}
-            </div>
-          ) : null}
-
-          {createSuccess ? (
-            <div className="success-banner" role="status">
-              {createSuccess}
-            </div>
-          ) : null}
-
-          <form className="create-product-form" onSubmit={handleCreateProduct}>
-            <div className="form-grid">
-              <label className="form-field" htmlFor="create-sku">
-                <span className="meta-label">SKU</span>
-                <input
-                  id="create-sku"
-                  type="text"
-                  required
-                  placeholder="CAT-XXX-123"
-                  value={createForm.sku}
-                  onChange={handleFieldChange("sku")}
-                />
-              </label>
-
-              <label className="form-field" htmlFor="create-name">
-                <span className="meta-label">Name</span>
-                <input
-                  id="create-name"
-                  type="text"
-                  required
-                  placeholder="Product display name"
-                  value={createForm.name}
-                  onChange={handleFieldChange("name")}
-                />
-              </label>
-
-              <label className="form-field" htmlFor="create-price">
-                <span className="meta-label">Price (₹)</span>
-                <input
-                  id="create-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  value={createForm.price}
-                  onChange={handleFieldChange("price")}
-                />
-              </label>
-
-              <label className="form-field" htmlFor="create-image">
-                <span className="meta-label">Image URL</span>
-                <input
-                  id="create-image"
-                  type="url"
-                  placeholder="https://..."
-                  value={createForm.imageUrl}
-                  onChange={handleFieldChange("imageUrl")}
-                />
-              </label>
-
-              <label className="form-field" htmlFor="create-stock">
-                <span className="meta-label">Stock on hand</span>
-                <input
-                  id="create-stock"
-                  type="number"
-                  min="0"
-                  required
-                  value={createForm.stockQuantity}
-                  onChange={handleFieldChange("stockQuantity")}
-                />
-              </label>
-            </div>
-
-            <label className="form-field" htmlFor="create-description">
-              <span className="meta-label">Merchandising description</span>
-              <textarea
-                id="create-description"
-                rows={3}
-                required
-                placeholder="Tell the story around this SKU so designers and approvers have context."
-                value={createForm.description}
-                onChange={handleFieldChange("description")}
-              />
-            </label>
-
-            <fieldset className="spec-grid">
-              <legend>Specifications</legend>
-              <p className="small-muted">
-                Capture fabrication details like material, fit, and finish.
-              </p>
-              {createForm.specifications.map((spec) => (
-                <div key={spec.id} className="spec-row">
-                  <input
-                    type="text"
-                    placeholder="Key (e.g. material)"
-                    value={spec.key}
-                    onChange={(event) =>
-                      handleSpecChange(spec.id, "key", event.target.value)
-                    }
-                  />
-                  <input
-                    type="text"
-                    placeholder="Value (e.g. Cotton)"
-                    value={spec.value}
-                    onChange={(event) =>
-                      handleSpecChange(spec.id, "value", event.target.value)
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="ghost-icon-button"
-                    onClick={() => handleRemoveSpec(spec.id)}
-                    aria-label="Remove specification"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleAddSpec}
-              >
-                Add specification
-              </button>
-            </fieldset>
-
-            <label className="form-checkbox" htmlFor="create-active">
-              <input
-                id="create-active"
-                type="checkbox"
-                checked={createForm.active}
-                onChange={handleFieldChange("active")}
-              />
-              <span>Mark as active and available for ordering</span>
-            </label>
-
-            <div className="form-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={handleCancelCreate}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving…" : "Save product"}
-              </button>
-            </div>
-          </form>
-        </section>
-      ) : null}
-
       {isLoading ? (
         <div className="centered">
           <div className="spinner" aria-label="Loading products" />
         </div>
       ) : error ? (
         <div className="error-banner">{error}</div>
-      ) : filteredProducts.length === 0 ? (
+      ) : visibleProducts.length === 0 ? (
         <div className="empty-state">
           <h3>No products available</h3>
-          <p className="small-muted">
-            Try changing the filter or add a new SKU from the backend.
-          </p>
+          <p className="small-muted">Please check back later.</p>
         </div>
       ) : (
         <div className="products-grid">
-          {filteredProducts.map((product, index) => {
-            const specEntries = Object.entries(product.specifications ?? {});
-            const visibleSpecs = specEntries.slice(0, 4);
-            const remainingSpecCount = specEntries.length - visibleSpecs.length;
+          {visibleProducts.map((product, index) => {
+            const resolvedImageUrl = resolveProductImageUrl(product.imageUrl);
             const fallbackInitial =
               product.name.trim().charAt(0) ||
               product.sku.trim().charAt(0) ||
               "P";
+            const cartEntry = cartLookup.get(product.id);
+            const quantity = cartEntry?.quantity ?? 0;
+            const availableToOrder =
+              product.active && product.stockQuantity > 0;
             return (
               <article
                 key={product.id}
@@ -643,137 +148,68 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
                 style={{ "--card-index": String(index) } as CSSProperties}
               >
                 <div className="product-media">
-                  {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      loading="lazy"
-                    />
+                  {resolvedImageUrl ? (
+                    <button
+                      type="button"
+                      className="product-media-button"
+                      onClick={() =>
+                        setPreview({
+                          url: resolvedImageUrl,
+                          title: product.name,
+                        })
+                      }
+                      aria-label={`Preview ${product.name}`}
+                    >
+                      <img
+                        src={resolvedImageUrl}
+                        alt={product.name}
+                        loading="lazy"
+                      />
+                    </button>
                   ) : (
                     <div className="product-media-fallback" aria-hidden="true">
                       <span>{fallbackInitial}</span>
                     </div>
                   )}
-                  <span
-                    className={`product-status-badge ${
-                      product.active ? "is-active" : "is-inactive"
-                    }`}
-                  >
-                    {product.active ? "Active" : "Inactive"}
-                  </span>
                 </div>
 
                 <div className="product-body">
-                  <div className="product-heading">
-                    <div>
-                      <h3 className="product-title">{product.name}</h3>
-                      <p className="product-sku">{product.sku}</p>
-                    </div>
-                    <div className="product-price">
-                      {currencyFormatter.format(product.price)}
-                    </div>
-                  </div>
-
-                  <p className="product-description">{product.description}</p>
-
-                  {specEntries.length > 0 ? (
-                    <div className="product-spec-chip-row">
-                      {visibleSpecs.map(([key, value]) => (
-                        <span key={key} className="product-spec-chip">
-                          <span className="spec-chip-key">{key}</span>
-                          <span className="spec-chip-value">
-                            {String(value)}
-                          </span>
-                        </span>
-                      ))}
-                      {remainingSpecCount > 0 ? (
-                        <span className="product-spec-more">
-                          +{remainingSpecCount} more
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <span className="product-spec-empty small-muted">
-                      Specs pending curation
-                    </span>
-                  )}
-
-                  <footer className="product-footer">
-                    <div>
-                      <div className="meta-label">Stock</div>
-                      <strong>{product.stockQuantity}</strong>
-                    </div>
-                    <div>
-                      <div className="meta-label">Created</div>
-                      <span>
-                        {dateFormatter.format(new Date(product.createdAt))}
-                      </span>
-                    </div>
-                  </footer>
+                  <h3 className="product-title">{product.name}</h3>
 
                   {canOrder ? (
-                    <div className="product-cart-actions">
-                      {(() => {
-                        const cartEntry = cartLookup.get(product.id);
-                        const quantity = cartEntry?.quantity ?? 0;
-                        const availableToOrder =
-                          product.active && product.stockQuantity > 0;
-
-                        if (quantity > 0) {
-                          return (
-                            <>
-                              <div className="quantity-stepper">
-                                <button
-                                  type="button"
-                                  onClick={() => decrementItem(product.id)}
-                                  disabled={quantity <= 1}
-                                  aria-label="Decrease quantity"
-                                >
-                                  −
-                                </button>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={product.stockQuantity}
-                                  value={quantity}
-                                  onChange={(event) =>
-                                    setItemQuantity(
-                                      product.id,
-                                      Number.parseInt(event.target.value, 10)
-                                    )
-                                  }
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => incrementItem(product.id)}
-                                  disabled={quantity >= product.stockQuantity}
-                                  aria-label="Increase quantity"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <button
-                                type="button"
-                                className="view-cart-link"
-                                onClick={openCart}
-                              >
-                                View cart
-                              </button>
-                            </>
-                          );
-                        }
-
-                        return (
+                    <div className="product-cart-actions simple">
+                      <button
+                        type="button"
+                        className="add-to-cart-button"
+                        onClick={() => addItem(product, 1)}
+                        disabled={!availableToOrder}
+                      >
+                        {availableToOrder
+                          ? quantity > 0
+                            ? "Add another"
+                            : "Add to cart"
+                          : "Unavailable"}
+                      </button>
+                      {quantity > 0 ? (
+                        <div className="product-cart-status">
+                          <span>{quantity} in cart</span>
                           <button
                             type="button"
-                            className="add-to-cart-button"
-                            onClick={() => addItem(product, 1)}
-                            disabled={!availableToOrder}
+                            className="view-cart-link"
+                            onClick={openCart}
                           >
-                            {availableToOrder ? "Add to cart" : "Unavailable"}
+                            View cart
                           </button>
-                        );
-                      })()}
+                          <button
+                            type="button"
+                            className="ghost-icon-button"
+                            onClick={() => setItemQuantity(product.id, 0)}
+                            aria-label="Remove from cart"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -782,6 +218,54 @@ export function ProductsPage({ token, user, onLogout }: ProductsPageProps) {
           })}
         </div>
       )}
+
+      {preview ? (
+        <div
+          className="image-preview-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Previewing ${preview.title}`}
+          onClick={() => setPreview(null)}
+        >
+          <div
+            className="image-preview-layer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="image-preview-header">
+              <span className="image-preview-title">{preview.title}</span>
+              <button
+                type="button"
+                className="image-preview-close"
+                onClick={() => setPreview(null)}
+                aria-label="Close image preview"
+              >
+                ✕
+              </button>
+            </header>
+            <div className="image-preview-media">
+              {isPreviewLoading ? (
+                <div className="spinner" aria-label="Loading image" />
+              ) : previewError ? (
+                <div className="error-banner" role="alert">
+                  {previewError}
+                </div>
+              ) : null}
+              <img
+                src={preview.url}
+                alt={preview.title}
+                onLoad={() => setIsPreviewLoading(false)}
+                onError={() => {
+                  setIsPreviewLoading(false);
+                  setPreviewError("Unable to display this image.");
+                }}
+                style={{
+                  display: previewError || isPreviewLoading ? "none" : "block",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AppLayout>
   );
 }

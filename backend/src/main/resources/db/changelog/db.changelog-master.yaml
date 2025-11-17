@@ -9,3 +9,9 @@ databaseChangeLog:
       file: db/changelog/db.changelog-004-auth-enhancements.yaml
   - include:
       file: db/changelog/db.changelog-005-fulfillment-enhancements.yaml
+  - include:
+      file: db/changelog/db.changelog-006-sample-data-cleanup.yaml
+  - include:
+      file: db/changelog/db.changelog-007-purge-catalog.yaml
+  - include:
+      file: db/changelog/db.changelog-008-remove-pricing.yaml

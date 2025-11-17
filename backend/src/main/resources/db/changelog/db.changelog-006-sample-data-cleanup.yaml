@@ -1,0 +1,49 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-remove-legacy-sample-data
+      author: github-copilot
+      changes:
+        - sql:
+            comment: Remove legacy demo orders inserted by earlier seeders
+            sql: |
+              DELETE FROM orders
+              WHERE customer_gst LIKE 'GSTINFLOW%'
+                 OR shipping_address IN (
+                    '742 Evergreen Terrace, Springfield',
+                    '221B Baker Street, London',
+                    '31 Spooner Street, Quahog'
+                 );
+        - sql:
+            comment: Remove legacy demo products inserted by earlier seeders
+            sql: |
+              DELETE FROM products
+              WHERE sku IN (
+                'CAT-HOODIE-001',
+                'CAT-TEE-002',
+                'CAT-JACKET-003',
+                'CAT-SHORT-004',
+                'CAT-TRACK-005',
+                'CAT-SOCK-006',
+                'CAT-CAP-007',
+                'CAT-BAG-008',
+                'CAT-BOTTLE-009',
+                'CAT-BAND-010',
+                'CAT-YOGA-011',
+                'CAT-HAT-012',
+                'CAT-SCARF-013',
+                'CAT-GLOVE-014',
+                'CAT-SHOE-015',
+                'CAT-SHOE-016',
+                'CAT-LS-017',
+                'CAT-BRA-018',
+                'CAT-TANK-019',
+                'CAT-TEE-020',
+                'CAT-CREW-021',
+                'CAT-PARKA-022',
+                'CAT-TEE-023',
+                'CAT-HOODIE-024',
+                'CAT-BOTTOM-025',
+                'CAT-SHORT-026',
+                'CAT-SOCK-027',
+                'CAT-TEE-028'
+              );

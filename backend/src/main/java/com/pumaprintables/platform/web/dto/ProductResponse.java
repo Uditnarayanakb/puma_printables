@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -13,7 +12,6 @@ public record ProductResponse(
     String sku,
     String name,
     String description,
-    BigDecimal price,
     String imageUrl,
     JsonNode specifications,
     Integer stockQuantity,

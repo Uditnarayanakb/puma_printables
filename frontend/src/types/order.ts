@@ -11,8 +11,6 @@ export type OrderItem = {
   productName: string;
   imageUrl?: string | null;
   quantity: number;
-  unitPrice: number;
-  lineTotal: number;
 };
 
 export type CourierInfo = {
@@ -27,8 +25,9 @@ export type Order = {
   shippingAddress: string;
   deliveryAddress: string | null;
   customerGst: string | null;
+  placedByUsername: string | null;
+  placedByName: string | null;
   items: OrderItem[];
-  totalAmount: number;
   createdAt: string;
   courierInfo: CourierInfo;
 };

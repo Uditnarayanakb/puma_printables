@@ -1,7 +1,7 @@
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
-import { api } from "../services/api";
+import { api, API_BASE_URL } from "../services/api";
 import type { Order, OrderStatus } from "../types/order";
 import type { Product } from "../types/product";
 
@@ -23,24 +23,26 @@ const statusClassNames: Record<OrderStatus, string> = {
   FULFILLED: "status-pill fulfilled",
 };
 
-const currencyFormatter = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-});
-
 const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
+const ABSOLUTE_URL_PATTERN = /^https?:\/\//i;
+
+const resolveImageUrl = (imageUrl?: string | null) => {
+  if (!imageUrl) {
+    return null;
+  }
+  if (ABSOLUTE_URL_PATTERN.test(imageUrl)) {
+    return encodeURI(imageUrl);
+  }
+  const normalized = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  return encodeURI(`${API_BASE_URL}${normalized}`);
+};
+
 const MAX_ORDER_ITEMS = 5;
-const COURIER_OPTIONS = [
-  "Delhivery",
-  "Blue Dart",
-  "Ecom Express",
-  "Shadowfax",
-  "DTDC",
-];
+const COURIER_OPTIONS = ["Blue Dart", "DTDC"];
 const AUTO_REFRESH_INTERVAL_MS = 60_000;
 const SKELETON_PLACEHOLDERS = 3;
 
@@ -111,6 +113,8 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
   const canCreateOrders = user.role === "ADMIN";
   const canManageApprovals = user.role === "APPROVER" || user.role === "ADMIN";
   const canManageFulfillment =
+    user.role === "FULFILLMENT_AGENT" || user.role === "ADMIN";
+  const canManageCourier =
     user.role === "FULFILLMENT_AGENT" || user.role === "ADMIN";
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -215,7 +219,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       .then((data) => {
         setProductImageLookup(
           data.reduce<Record<string, string | null>>((acc, product) => {
-            acc[product.id] = product.imageUrl ?? null;
+            acc[product.id] = resolveImageUrl(product.imageUrl);
             return acc;
           }, {})
         );
@@ -404,7 +408,6 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
       deliveryAddress: order.deliveryAddress ?? order.shippingAddress,
     });
   };
-
   const openCourierModal = (order: Order) => {
     const defaultDate = order.courierInfo?.dispatchDate
       ? toDateTimeLocal(new Date(order.courierInfo.dispatchDate))
@@ -468,7 +471,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
         await api.acceptOrder(token, actionModal.order.id, {
           deliveryAddress: address,
         });
-        setSuccessMessage("Order accepted for fulfilment");
+        setSuccessMessage("Order accepted");
       } else if (actionModal.type === "courier") {
         const courierName = actionModal.courierName.trim();
         const trackingNumber = actionModal.trackingNumber.trim();
@@ -669,7 +672,13 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
               <div className="order-meta">
                 <div className="meta-block">
                   <span className="meta-label">Placed by</span>
-                  <span>{order.customerGst ?? "Store user"}</span>
+                  <span>
+                    {order.placedByName?.trim()
+                      ? `${order.placedByName} (${
+                          order.placedByUsername ?? "Store user"
+                        })`
+                      : order.placedByUsername ?? "Store user"}
+                  </span>
                 </div>
                 <div className="meta-block">
                   <span className="meta-label">Created</span>
@@ -679,6 +688,12 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                   <span className="meta-label">Ship to</span>
                   <span>{order.shippingAddress}</span>
                 </div>
+                {order.customerGst ? (
+                  <div className="meta-block">
+                    <span className="meta-label">Customer GST</span>
+                    <span>{order.customerGst}</span>
+                  </div>
+                ) : null}
                 {order.deliveryAddress &&
                 order.deliveryAddress !== order.shippingAddress ? (
                   <div className="meta-block">
@@ -691,7 +706,9 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
               <div className="order-items-deck" aria-label="Line items">
                 {order.items.map((item) => {
                   const resolvedImage =
-                    item.imageUrl ?? productImageLookup[item.productId] ?? null;
+                    resolveImageUrl(item.imageUrl) ??
+                    productImageLookup[item.productId] ??
+                    null;
                   const fallbackInitial =
                     item.productName.trim().charAt(0) || "P";
                   return (
@@ -721,11 +738,8 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                           </span>
                         </div>
                         <div className="order-item-bottom">
-                          <span>
-                            {currencyFormatter.format(item.unitPrice)} each
-                          </span>
-                          <span className="order-item-total">
-                            {currencyFormatter.format(item.lineTotal)}
+                          <span className="small-muted">
+                            Pricing captured outside this portal.
                           </span>
                         </div>
                       </div>
@@ -761,18 +775,18 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                       className="primary-button action-button"
                       onClick={() => openAcceptModal(order)}
                     >
-                      Accept for fulfilment
+                      Accept order
                     </button>
                   ) : null}
 
                   {(() => {
+                    if (!canManageCourier) {
+                      return null;
+                    }
+
                     const courierEligible =
-                      (canManageApprovals &&
-                        order.status === "APPROVED" &&
-                        !order.courierInfo) ||
-                      (canManageFulfillment &&
-                        (order.status === "ACCEPTED" ||
-                          order.status === "IN_TRANSIT"));
+                      order.status === "ACCEPTED" ||
+                      order.status === "IN_TRANSIT";
 
                     if (!courierEligible) {
                       return null;
@@ -796,13 +810,6 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
               ) : null}
 
               <div className="order-footer">
-                <div>
-                  <div className="meta-label">Total amount</div>
-                  <div className="order-total">
-                    {currencyFormatter.format(order.totalAmount)}
-                  </div>
-                </div>
-
                 {order.courierInfo ? (
                   <div className="courier-block">
                     <strong>Courier dispatched</strong>
@@ -919,8 +926,7 @@ export function OrdersPage({ token, user, onLogout }: OrdersPageProps) {
                             <option value="">Select a SKU</option>
                             {products.map((product) => (
                               <option key={product.id} value={product.id}>
-                                {product.name} ·{" "}
-                                {currencyFormatter.format(product.price)}
+                                {product.name} · SKU {product.sku}
                               </option>
                             ))}
                           </select>

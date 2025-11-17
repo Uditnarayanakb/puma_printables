@@ -19,7 +19,6 @@ export type CartItem = {
 type CartContextValue = {
   items: CartItem[];
   totalQuantity: number;
-  subtotal: number;
   isOpen: boolean;
   authToken: string | null;
   addItem: (product: Product, quantity?: number) => void;
@@ -193,12 +192,6 @@ export function CartProvider({ token, children }: CartProviderProps) {
     );
   }, []);
 
-  const subtotal = useMemo(
-    () =>
-      items.reduce((acc, item) => acc + item.product.price * item.quantity, 0),
-    [items]
-  );
-
   const totalQuantity = useMemo(
     () => items.reduce((acc, item) => acc + item.quantity, 0),
     [items]
@@ -208,7 +201,6 @@ export function CartProvider({ token, children }: CartProviderProps) {
     () => ({
       items,
       totalQuantity,
-      subtotal,
       isOpen,
       authToken: token,
       addItem,
@@ -225,7 +217,6 @@ export function CartProvider({ token, children }: CartProviderProps) {
     [
       items,
       totalQuantity,
-      subtotal,
       isOpen,
       token,
       addItem,

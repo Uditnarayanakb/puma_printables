@@ -21,7 +21,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -83,8 +82,7 @@ class ProductControllerTest {
         payload.put("sku", "SKU-1000");
         payload.put("name", "Puma Hoodie");
         payload.put("description", "Warm fleece hoodie");
-    payload.put("imageUrl", PRODUCT_IMAGE_URL);
-        payload.put("price", 2499.00);
+        payload.put("imageUrl", PRODUCT_IMAGE_URL);
         payload.set("specifications", specifications);
         payload.put("stockQuantity", 50);
         payload.put("active", true);
@@ -111,7 +109,6 @@ class ProductControllerTest {
             .name("Puma T-Shirt")
             .description("Breathable sports tee")
             .imageUrl(PRODUCT_IMAGE_URL)
-            .price(new BigDecimal("1299.00"))
             .specifications(objectMapper.readTree("{\"material\":\"polyester\"}"))
             .stockQuantity(100)
             .active(true)

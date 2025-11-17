@@ -4,15 +4,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { useCart } from "../hooks/useCart";
 
-const currencyFormatter = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-});
-
 export function CartDrawer() {
   const {
     items,
-    subtotal,
+    totalQuantity,
     isOpen,
     authToken,
     closeCart,
@@ -207,9 +202,6 @@ export function CartDrawer() {
                       <div>
                         <h3>{product.name}</h3>
                         <p className="small-muted">{product.sku}</p>
-                        <span className="cart-item-price">
-                          {currencyFormatter.format(product.price)}
-                        </span>
                         {!product.active ? (
                           <span className="cart-item-warning">
                             Inactive SKU
@@ -279,11 +271,11 @@ export function CartDrawer() {
         <form className="cart-footer" onSubmit={handleCheckout}>
           <div className="cart-summary">
             <div>
-              <div className="meta-label">Subtotal</div>
-              <strong>{currencyFormatter.format(subtotal)}</strong>
+              <div className="meta-label">Items in cart</div>
+              <strong>{totalQuantity}</strong>
             </div>
             <span className="small-muted">
-              Taxes calculated in final invoice.
+              Pricing is managed outside this workflow.
             </span>
           </div>
 
